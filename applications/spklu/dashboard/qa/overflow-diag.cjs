@@ -2,6 +2,15 @@
 // Jalankan di VM: node qa/overflow-diag.cjs
 const { chromium } = require('playwright');
 
+// Kredensial admin TIDAK boleh ditulis di skrip (masuk repo + riwayat git).
+// Isi lewat environment: QA_ADMIN_USER / QA_ADMIN_PASSWORD.
+const QA_ADMIN_USER = process.env.QA_ADMIN_USER || 'admin';
+const QA_ADMIN_PASSWORD = process.env.QA_ADMIN_PASSWORD;
+if (!QA_ADMIN_PASSWORD) {
+  console.error('QA_ADMIN_PASSWORD belum diset. Jalankan: QA_ADMIN_PASSWORD=... node ' + __filename);
+  process.exit(2);
+}
+
 const BASE = 'https://energy.edifly-si.com/spklu';
 const API = 'http://127.0.0.1:8080';
 
@@ -15,7 +24,7 @@ function decodeCode(b64) {
   const l = await fetch(`${API}/admin/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      username: 'admin', password: 'Pltsapp2026**',
+      username: QA_ADMIN_USER, password: QA_ADMIN_PASSWORD,
       captcha_id: c.data.id, captcha: decodeCode(c.data.image.split(',')[1]),
     }),
   }).then((r) => r.json());
