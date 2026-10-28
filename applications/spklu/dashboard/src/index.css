@@ -1,0 +1,502 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    @apply m-0 bg-slate-900 text-slate-200;
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+}
+
+@layer components {
+  .wrap {
+    @apply flex min-h-screen items-center justify-center p-4;
+  }
+  .login-page {
+    background-image: url('/spklu/assets/images/ilustration.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+  .card {
+    @apply flex w-full max-w-sm flex-col gap-3 rounded-xl bg-slate-800 p-6 shadow-2xl;
+  }
+  .card h1 {
+    @apply mb-2 mt-0 text-center text-xl;
+  }
+  .msg {
+    @apply m-0 text-center text-sm;
+  }
+
+  .layout {
+    @apply flex min-h-screen;
+  }
+  .sidebar {
+    @apply flex w-56 flex-col gap-4 bg-slate-800 p-4;
+  }
+  .sidebar h2 {
+    @apply m-0 text-lg;
+  }
+  .sidebar-brand {
+    @apply flex items-center gap-2;
+  }
+  .sidebar-brand img {
+    @apply h-9 w-9 rounded-lg object-cover;
+  }
+  .login-logo {
+    @apply mx-auto h-16 w-16 rounded-xl object-cover;
+  }
+  .captcha-row {
+    @apply flex items-center gap-2;
+  }
+  .captcha-img {
+    @apply h-12 shrink-0 cursor-pointer rounded-lg border border-slate-700 bg-slate-100;
+  }
+  .captcha-placeholder {
+    @apply flex h-12 items-center justify-center rounded-lg border border-slate-700 px-3 text-xs text-slate-400;
+  }
+  .sidebar nav {
+    @apply flex flex-col gap-1;
+  }
+  .sidebar nav a {
+    @apply rounded-lg px-2.5 py-2 text-slate-300 no-underline;
+  }
+  .sidebar nav a:hover {
+    @apply bg-slate-700 text-white;
+  }
+  .sidebar .logout {
+    @apply mt-auto bg-red-700;
+  }
+  .content {
+    @apply flex-1 p-6;
+    /* Flex item harus boleh menyusut di bawah lebar kontennya. Tanpa ini,
+       tabel dengan banyak kolom melebarkan SELURUH halaman (sidebar ikut
+       terdorong, muncul scroll horizontal di level dokumen). */
+    min-width: 0;
+  }
+  .content h1 {
+    @apply mt-0 text-2xl;
+  }
+
+  .grid {
+    @apply mb-6 grid gap-3;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+  /* Fixed 2-column form layout (chargebox modal). Collapses to 1 column on
+     narrow screens so the fields stay usable. */
+  .grid-2 {
+    @apply mb-6 grid gap-3;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  @media (max-width: 720px) {
+    .grid-2 {
+      grid-template-columns: 1fr;
+    }
+  }
+  /* Fixed 3-column form layout (Jangkauan / Jenis / Status). Lebar dibagi
+     rata, dan turun ke 1 kolom di layar sempit supaya field tetap terbaca. */
+  .grid-3 {
+    @apply mb-6 grid gap-3;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  @media (max-width: 720px) {
+    .grid-3 {
+      grid-template-columns: 1fr;
+    }
+  }
+  /* Layar sempit: sidebar jadi bar horizontal di atas, konten memakai lebar
+     penuh. Tanpa ini sidebar 224px menyisakan ~376px untuk konten di 600px,
+     sehingga tabel nyaris tak terbaca. */
+  @media (max-width: 720px) {
+    .layout {
+      flex-direction: column;
+    }
+    .sidebar {
+      @apply w-full;
+    }
+    .sidebar nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .content {
+      @apply p-4;
+    }
+  }
+  .stat {
+    @apply flex flex-col gap-1.5 rounded-lg bg-slate-800 p-4;
+  }
+  .stat span {
+    @apply text-xs text-slate-400;
+  }
+  .stat strong {
+    @apply text-2xl;
+  }
+
+  .panel {
+    @apply my-3 flex flex-col gap-3 rounded-lg bg-slate-800 p-4;
+  }
+  .panel h3 {
+    @apply m-0;
+  }
+  .row {
+    @apply flex gap-2;
+  }
+
+  .submenu {
+    @apply mb-5 flex flex-wrap gap-2;
+  }
+
+  table {
+    @apply w-full border-collapse overflow-hidden rounded-lg bg-slate-800;
+  }
+  th,
+  td {
+    @apply border-b border-slate-700 px-3 py-2.5 text-left text-sm;
+  }
+  th {
+    @apply bg-slate-900 font-semibold text-slate-400;
+  }
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  /* DataTable (search + sort + pagination) */
+  .datatable {
+    @apply flex flex-col gap-3;
+    /* Tabel lebar digulir DI DALAM kartu, bukan melebarkan halaman.
+       Toolbar (search + jumlah) tetap di tempatnya. */
+    overflow-x: auto;
+  }
+  .dt-toolbar {
+    @apply flex items-center justify-between gap-3;
+  }
+  .dt-search {
+    @apply relative flex items-center;
+  }
+  .dt-search svg {
+    @apply pointer-events-none absolute left-2.5 text-slate-400;
+  }
+  .dt-search input {
+    @apply w-64 rounded-lg border border-slate-700 bg-slate-900 py-2 pl-9 pr-3 text-sm text-slate-200;
+  }
+  .dt-count {
+    @apply text-xs text-slate-400;
+  }
+  .dt-pagination {
+    @apply flex items-center justify-between gap-3;
+  }
+  .dt-pagination > span {
+    @apply text-sm text-slate-400;
+  }
+  th.sortable {
+    @apply cursor-pointer select-none;
+  }
+  th.sortable:hover {
+    @apply text-slate-200;
+  }
+
+  button {
+    @apply inline-flex cursor-pointer items-center gap-1.5 rounded-lg border-0 bg-green-600 px-3 py-2.5 text-sm font-semibold text-white;
+  }
+  button:disabled {
+    @apply cursor-default opacity-60;
+  }
+  button.ghost {
+    @apply bg-slate-700;
+  }
+  button.danger {
+    @apply bg-red-700;
+  }
+  button.cancel {
+    @apply bg-red-500;
+  }
+
+  input,
+  select,
+  textarea {
+    @apply rounded-lg border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm text-slate-200;
+  }
+  textarea {
+    @apply w-full resize-y leading-relaxed;
+  }
+  .pw-wrap {
+    @apply relative;
+  }
+  .pw-wrap input {
+    @apply w-full pr-10;
+  }
+  .pw-toggle {
+    @apply absolute right-1.5 top-1/2 flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent p-0 text-slate-400;
+  }
+  .pw-toggle:hover {
+    @apply text-slate-200;
+  }
+  label {
+    @apply flex flex-col gap-1.5 text-sm;
+  }
+  label.check {
+    @apply flex-row items-center gap-2 text-sm;
+  }
+  input[type='checkbox'] {
+    @apply h-4 w-4;
+  }
+
+  /* Modal / dialog */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4;
+  }
+  .modal {
+    @apply max-h-[90vh] w-full overflow-y-auto rounded-xl bg-slate-800 p-6 shadow-2xl;
+  }
+  .modal-head {
+    @apply mb-4 flex items-center justify-between gap-3;
+  }
+  .modal-head h3 {
+    @apply m-0 text-lg;
+  }
+  .modal-body {
+    @apply flex flex-col gap-4;
+  }
+
+  /* Toggle switch ON/OFF */
+  .toggle-row {
+    @apply flex flex-wrap gap-5;
+  }
+  .toggle-field {
+    @apply flex flex-col gap-1.5 text-sm;
+  }
+  .switch {
+    @apply relative inline-block h-6 w-12 cursor-pointer rounded-full border-0 p-0 transition-colors;
+    background-color: #475569;
+  }
+  .switch.on {
+    background-color: #16a34a;
+  }
+  .switch .knob {
+    @apply absolute top-0.5 block h-5 w-5 rounded-full bg-white transition-transform;
+    left: 2px;
+    transform: translateX(0);
+  }
+  .switch.on .knob {
+    transform: translateX(24px);
+  }
+  .switch-state {
+    @apply text-xs font-semibold text-slate-400;
+  }
+  .switch-state.on {
+    @apply text-green-500;
+  }
+
+  /* Leaflet map picker */
+  .map-wrap {
+    @apply flex flex-col gap-2;
+  }
+  .map-wrap > span {
+    @apply text-sm;
+  }
+  .map-picker {
+    @apply relative overflow-hidden rounded-lg border border-slate-700;
+  }
+  .map-canvas {
+    height: 320px;
+    width: 100%;
+  }
+  .map-search {
+    @apply absolute top-2 z-[1000] flex w-72 max-w-[calc(100%-1rem)] flex-col gap-1;
+    left: 8px;
+  }
+  .map-search .map-search-row {
+    @apply flex gap-1;
+  }
+  .map-search input {
+    @apply flex-1 rounded-lg border border-slate-700 bg-white px-3 py-2 text-sm text-slate-900;
+  }
+  .map-search .map-search-row button {
+    @apply px-3 py-2 text-sm;
+  }
+  .map-results {
+    @apply m-0 max-h-40 list-none overflow-y-auto rounded-lg bg-white p-0 shadow-lg;
+  }
+  .map-results li {
+    @apply border-b border-slate-200;
+  }
+  .map-results li:last-child {
+    border-bottom: none;
+  }
+  .map-results button {
+    @apply block w-full cursor-pointer rounded-none border-0 bg-transparent px-3 py-2 text-left text-xs text-slate-800;
+  }
+  .map-results button:hover {
+    @apply bg-slate-100;
+  }
+  .map-error {
+    @apply m-0 p-2 text-xs text-red-400;
+  }
+  .map-note {
+    @apply m-0 p-2 text-xs text-amber-300;
+  }
+  .connector-info {
+    @apply m-0 rounded-lg border border-slate-700 bg-slate-900/60 p-3 text-xs leading-relaxed text-slate-300;
+  }
+  .connector-info strong {
+    @apply text-slate-100;
+  }
+
+  /* Custom dropdown tipe konektor (select native tidak bisa memuat ikon SVG) */
+  .cts-trigger {
+    @apply flex w-full min-w-40 items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-sm text-slate-100;
+  }
+  .cts-trigger:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
+  .cts-trigger-label {
+    @apply flex items-center gap-2 truncate;
+  }
+  .cts-chevron {
+    @apply shrink-0 text-slate-400;
+  }
+  .cts-muted {
+    @apply text-slate-500;
+  }
+  .cts-menu {
+    @apply fixed z-[1200] flex max-h-72 flex-col overflow-y-auto rounded-lg border border-slate-700 bg-slate-800 p-1 shadow-2xl;
+  }
+  .cts-item {
+    @apply flex w-full items-center gap-2 rounded-md border-0 bg-transparent px-2 py-1.5 text-left text-sm text-slate-200;
+  }
+  .cts-item:hover {
+    @apply bg-slate-700;
+  }
+  .cts-item.is-active {
+    @apply bg-slate-700/70 text-white;
+  }
+  /* Sorotan keyboard (panah atas/bawah) — beda dari opsi yang sedang terpilih. */
+  .cts-item.is-highlighted {
+    @apply bg-emerald-600/30 text-white;
+  }
+  .cts-item.is-highlighted.is-active {
+    @apply bg-emerald-600/40;
+  }
+  .cts-icon {
+    @apply flex w-6 shrink-0 justify-center text-emerald-400;
+  }
+  /* Ikon konektor AC/DC: SVG inline, warna ikut currentColor. */
+  .connector-icon {
+    @apply inline-flex shrink-0 items-center justify-center;
+    color: inherit;
+  }
+  .connector-icon svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .cts-text {
+    @apply flex min-w-0 flex-col;
+  }
+  .cts-text strong {
+    @apply font-medium;
+  }
+  .cts-text small {
+    @apply text-xs text-slate-400;
+  }
+  .latlng {
+    @apply mb-0;
+  }
+  .latlng input {
+    @apply bg-slate-900/60 text-slate-400;
+  }
+}
+
+/* Media library & picker — grid thumbnail. Ditulis di luar @layer supaya
+   menang atas gaya dasar `button` (yang ber-layer). */
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 0.75rem;
+}
+.media-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.375rem;
+  border: 1px solid #334155;
+  border-radius: 0.5rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 0.5rem;
+  text-align: left;
+  cursor: pointer;
+}
+.media-card:hover {
+  border-color: #22c55e;
+}
+.media-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+/* Bingkai gambar proporsional 16:9 dengan tombol X (hapus) overlay — tampil
+   saat hover, judul tooltip "Hapus". Dipakai di field foto form dan menu Media. */
+.img-frame {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #334155;
+  border-radius: 0.5rem;
+  background: #1e293b;
+  line-height: 0;
+}
+.img-frame img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+.img-x {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid #475569;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.8);
+  color: #f1f5f9;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+.img-frame:hover .img-x,
+.img-frame:focus-within .img-x {
+  opacity: 1;
+}
+.img-x:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+.media-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 0.375rem;
+  background: #1e293b;
+}
+.media-name {
+  font-size: 0.7rem;
+  line-height: 1.2;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.media-folder {
+  font-size: 0.65rem;
+  color: #475569;
+}

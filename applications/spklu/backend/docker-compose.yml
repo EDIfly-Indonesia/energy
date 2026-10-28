@@ -1,0 +1,31 @@
+services:
+  app:
+    build: .
+    container_name: node-web-app
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+      - "8484:8484"
+      - "9000:9000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - TZ=Asia/Jakarta
+      - DB_HOST_POSTGRE=energy-postgres
+      - DB_USER_POSTGRE=${DB_USER_POSTGRE}
+      - DB_DATABASE_POSTGRE=${DB_DATABASE_POSTGRE}
+      - DB_PASSWORD_POSTGRE=${DB_PASSWORD_POSTGRE}
+      - DB_PORT_POSTGRE=${DB_PORT_POSTGRE}
+    restart: unless-stopped
+    command: npm run dev
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - energy-core
+
+networks:
+  energy-core:
+    external: true

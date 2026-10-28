@@ -1,0 +1,495 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String   @unique @db.VarChar(50)
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy   String?  @map("created_by") @db.Uuid
+  users       User[]
+
+  @@map("tbl_roles")
+}
+
+model User {
+  id               String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId         String?          @map("tenant_id") @db.Uuid
+  companyId        String?          @map("company_id") @db.Uuid
+  roleId           String?          @map("role_id") @db.Uuid
+  name             String           @db.VarChar(255)
+  email            String           @unique @db.VarChar(255)
+  passwordHash     String           @map("password_hash") @db.VarChar(255)
+  isActive         Boolean          @default(true) @map("is_active")
+  lastLogin        DateTime?        @map("last_login") @db.Timestamptz(6)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy        String?          @map("created_by") @db.Uuid
+  updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy        String?          @map("updated_by") @db.Uuid
+  resetToken       String?          @map("reset_token") @db.VarChar(255)
+  resetTokenExpiry DateTime?        @map("reset_token_expiry") @db.Timestamptz(6)
+  refreshToken     String?          @map("refresh_token")
+  tokenExpiry      DateTime?        @map("token_expiry") @db.Timestamptz(6)
+  apiTokens        ApiToken[]
+  audits           AuditLog[]
+  notifications    Notification[]
+  permissions      UserPermission[]
+  company          Company?         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role             Role?            @relation(fields: [roleId], references: [id])
+  tenant           Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tbl_users")
+}
+
+model Permission {
+  id         String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  capability String           @db.VarChar(100)
+  module     String           @db.VarChar(50)
+  userPerms  UserPermission[]
+
+  @@map("tbl_permission")
+}
+
+model UserPermission {
+  userId       String     @map("user_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  grantedAt    DateTime   @default(now()) @map("granted_at") @db.Timestamptz(6)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, permissionId])
+  @@map("tbl_user_permission")
+}
+
+model ApiToken {
+  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String?   @map("user_id") @db.Uuid
+  token     String?   @unique @db.VarChar(255)
+  name      String    @db.VarChar(100)
+  expiresAt DateTime? @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User?     @relation(fields: [userId], references: [id])
+
+  @@map("tbl_api_tokens")
+}
+
+model Tenant {
+  id              String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  code            String?      @db.VarChar(255)
+  name            String       @db.VarChar(255)
+  type            String       @db.VarChar(50)
+  isActive        Boolean      @default(true) @map("is_active")
+  billingStreet   String?      @map("billing_street") @db.VarChar(100)
+  billingCity     String?      @map("billing_city") @db.VarChar(100)
+  billingState    String?      @map("billing_state") @db.VarChar(100)
+  billingZip      String?      @map("billing_zip") @db.VarChar(100)
+  billingCountry  String?      @map("billing_country") @db.VarChar(100)
+  street          String?      @db.VarChar(100)
+  city            String?      @db.VarChar(100)
+  state           String?      @db.VarChar(100)
+  zip             String?      @db.VarChar(100)
+  country         String?      @db.VarChar(100)
+  phoneNumber     String?      @map("phonenumber") @db.VarChar(100)
+  vat             String?      @db.VarChar(100)
+  defaultCurrency String?      @map("default_currency") @db.VarChar(100)
+  longitude       String?      @db.VarChar(200)
+  latitude        String?      @db.VarChar(200)
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy       String?      @map("created_by") @db.Uuid
+  updatedAt       DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy       String?      @map("updated_by") @db.Uuid
+  invoices        Invoice[]
+  projects        Project[]
+  sites           Site[]
+  users           User[]
+  vendorAuths     VendorAuth[]
+
+  @@map("tbl_tenants")
+}
+
+model Company {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name            String    @db.VarChar(255)
+  isActive        Boolean   @default(true) @map("is_active")
+  billingStreet   String?   @map("billing_street") @db.VarChar(100)
+  billingCity     String?   @map("billing_city") @db.VarChar(100)
+  billingState    String?   @map("billing_state") @db.VarChar(100)
+  billingZip      String?   @map("billing_zip") @db.VarChar(100)
+  billingCountry  String?   @map("billing_country") @db.VarChar(100)
+  street          String?   @db.VarChar(100)
+  city            String?   @db.VarChar(100)
+  state           String?   @db.VarChar(100)
+  zip             String?   @db.VarChar(100)
+  country         String?   @db.VarChar(100)
+  phoneNumber     String?   @map("phonenumber") @db.VarChar(100)
+  vat             String?   @db.VarChar(100)
+  defaultCurrency String?   @map("default_currency") @db.VarChar(100)
+  longitude       String?   @db.VarChar(200)
+  latitude        String?   @db.VarChar(200)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy       String?   @map("created_by") @db.Uuid
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy       String?   @map("updated_by") @db.Uuid
+  invoices        Invoice[]
+  projects        Project[]
+  users           User[]
+
+  @@map("tbl_companies")
+}
+
+model Site {
+  id             String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String         @map("tenant_id") @db.Uuid
+  siteCode       String?        @map("site_code") @db.VarChar(100)
+  name           String         @db.VarChar(255)
+  capacityKwp    Decimal        @default(0.00) @map("capacity_kwp") @db.Decimal(10, 2)
+  latitude       Decimal?       @db.Decimal(10, 8)
+  longitude      Decimal?       @db.Decimal(11, 8)
+  timezone       String         @default("Asia/Jakarta") @db.VarChar(50)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy      String?        @map("created_by") @db.Uuid
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy      String?        @map("updated_by") @db.Uuid
+  dailySummaries DailySummary[]
+  devices        Device[]
+  gateways       Gateway[]
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tbl_sites")
+}
+
+model DeviceBrand {
+  id             String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name           String          @unique @db.VarChar(100)
+  devices        Device[]
+  vendorMappings VendorMapping[]
+
+  @@map("tbl_device_brands")
+}
+
+model DeviceType {
+  id      String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name    String   @unique @db.VarChar(100)
+  devices Device[]
+
+  @@map("tbl_device_types")
+}
+
+model Device {
+  id                  String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  siteId              String               @map("site_id") @db.Uuid
+  brandId             String               @map("brand_id") @db.Uuid
+  typeId              String               @map("type_id") @db.Uuid
+  serialNumber        String               @map("serial_number") @db.VarChar(200)
+  modelName           String?              @map("model_name") @db.VarChar(200)
+  status              String               @default("OFFLINE") @db.VarChar(50)
+  lastSeenAt          DateTime?            @map("last_seen_at") @db.Timestamptz(6)
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy           String?              @map("created_by") @db.Uuid
+  updatedAt           DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy           String?              @map("updated_by") @db.Uuid
+  alarms              Alarm[]
+  brand               DeviceBrand          @relation(fields: [brandId], references: [id])
+  site                Site                 @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  type                DeviceType           @relation(fields: [typeId], references: [id])
+  telemetryAggregates TelemetryAggregate[]
+  telemetryData       TelemetryData[]
+  telemetryMappings   TelemetryMapping[]
+
+  @@unique([brandId, serialNumber])
+  @@map("tbl_devices")
+}
+
+model VendorMapping {
+  id          String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  brandId     String      @map("brand_id") @db.Uuid
+  vendorKey   String      @map("vendor_key") @db.VarChar(100)
+  standardKey String      @map("standard_key") @db.VarChar(100)
+  dataType    String      @default("FLOAT") @map("data_type") @db.VarChar(50)
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy   String?     @map("created_by") @db.Uuid
+  brand       DeviceBrand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@unique([brandId, vendorKey])
+  @@map("telemetry_vendor_mappings")
+}
+
+model TelemetryMapping {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  deviceId    String   @map("device_id") @db.Uuid
+  vendorKey   String   @map("vendor_key") @db.VarChar(100)
+  standardKey String   @map("standard_key") @db.VarChar(100)
+  dataType    String   @default("FLOAT") @map("data_type") @db.VarChar(50)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy   String?  @map("created_by") @db.Uuid
+  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, vendorKey])
+  @@map("telemetry_mappings")
+}
+
+model TelemetryData {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  deviceId    String   @map("device_id") @db.Uuid
+  standardKey String   @map("standard_key") @db.VarChar(100)
+  value       String   @db.VarChar(50)
+  quality     String   @default("GOOD") @db.VarChar(50)
+  timestamp   DateTime @db.Timestamptz(6)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, standardKey, timestamp], name: "device_id_standard_key_timestamp")
+  @@map("tbl_telemetry_data")
+}
+
+model TelemetryAggregate {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  deviceId    String   @map("device_id") @db.Uuid
+  standardKey String   @map("standard_key") @db.VarChar(100)
+  period      String   @db.VarChar(50)
+  minValue    String?  @map("min_value") @db.VarChar(50)
+  maxValue    String?  @map("max_value") @db.VarChar(50)
+  avgValue    String?  @map("avg_value") @db.VarChar(50)
+  sumValue    String?  @map("sum_value") @db.VarChar(50)
+  count       Int      @default(0)
+  periodStart DateTime @map("period_start") @db.Timestamptz(6)
+  periodEnd   DateTime @map("period_end") @db.Timestamptz(6)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("tbl_telemetry_aggregates")
+}
+
+model DailySummary {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  siteId           String   @map("site_id") @db.Uuid
+  date             DateTime @default(now()) @db.Date
+  totalProduction  String   @default("0") @map("total_production") @db.VarChar(50)
+  totalConsumption String   @default("0") @map("total_consumption") @db.VarChar(50)
+  totalExport      String   @default("0") @map("total_export") @db.VarChar(50)
+  totalImport      String   @default("0") @map("total_import") @db.VarChar(50)
+  totalStorage     String   @default("0") @map("total_storage") @db.VarChar(50)
+  peakPower        String   @default("0") @map("peak_power") @db.VarChar(50)
+  avgPower         String   @default("0") @map("avg_power") @db.VarChar(50)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  site             Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@map("tbl_daily_summary")
+}
+
+model Rate {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  code              String?  @unique @db.VarChar(50)
+  name              String   @db.VarChar(100)
+  rateType          String   @default("FIXED") @db.VarChar(20)  @map("rate_type")
+
+  // Fixed Rate
+  fixedAmount       Decimal? @db.Decimal(15, 4) @map("fixed_amount")
+
+  // Peak/Off-Peak Rate (Time-of-Use, satu jendela WBP 17:00-22:00)
+  peakRate          Decimal? @db.Decimal(15, 4) @map("peak_rate")
+  offPeakRate       Decimal? @db.Decimal(15, 4) @map("off_peak_rate")
+  peakStartHour     Int?     @default(17)  @map("peak_start_hour")
+  peakEndHour       Int?     @default(22)  @map("peak_end_hour")
+
+  // Scope
+  tenantId          String?  @db.Uuid @map("tenant_id")
+  siteId            String?  @db.Uuid @map("site_id")
+  isActive          Boolean  @default(true) @map("is_active")
+
+  // Metadata
+  description       String?  @db.VarChar(255)
+  currency          String   @default("IDR") @db.VarChar(5)
+  effectiveFrom     DateTime @default(now()) @db.Timestamptz(6) @map("effective_from")
+  effectiveTo       DateTime? @db.Timestamptz(6) @map("effective_to")
+
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy         String?  @map("created_by") @db.Uuid
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy         String?  @map("updated_by") @db.Uuid
+
+  @@map("tbl_rates")
+}
+
+model Alarm {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  deviceId   String    @map("device_id") @db.Uuid
+  errorCode  String?   @map("error_code") @db.VarChar(100)
+  severity   String    @default("INFO") @db.VarChar(100)
+  message    String?
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy  String?   @map("created_by") @db.Uuid
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy  String?   @map("updated_by") @db.Uuid
+  device     Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("tbl_alarms")
+}
+
+model ErrorCode {
+  code          String   @id @db.VarChar(50)
+  category      String   @db.VarChar(50)
+  severity      String   @default("WARNING") @db.VarChar(20)
+  descriptionId String   @map("description_id") @db.VarChar(255)
+  descriptionEn String?  @map("description_en") @db.VarChar(255)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("tbl_error_codes")
+}
+
+model AuditLog {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tableName String   @map("table_name") @db.VarChar(100)
+  recordId  String   @map("record_id") @db.Uuid
+  action    String   @db.VarChar(10)
+  oldData   Json?    @map("old_data")
+  newData   Json?    @map("new_data")
+  changedBy String?  @map("changed_by") @db.Uuid
+  changedAt DateTime @default(now()) @map("changed_at") @db.Timestamptz(6)
+  user      User?    @relation(fields: [changedBy], references: [id])
+
+  @@map("tbl_audit_logs")
+}
+
+model VendorAuth {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  vendorName   String   @map("vendor_name") @db.VarChar(100)
+  appKey       String?  @map("app_key")
+  accessToken  String   @map("access_token")
+  refreshToken String?  @map("refresh_token")
+  expiresAt    DateTime @map("expires_at") @db.Timestamptz(6)
+  metaData     Json?    @map("meta_data")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, vendorName])
+  @@map("tbl_vendor_auth")
+}
+
+model Notification {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  type      String?  @db.VarChar(100)
+  title     String?  @db.VarChar(255)
+  message   String?
+  data      Json?    @map("data")
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@map("tbl_notifications")
+}
+
+model Gateway {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  siteId     String?   @map("site_id") @db.Uuid
+  name       String?   @db.VarChar(100)
+  macAddress String?   @unique @map("mac_address") @db.VarChar(255)
+  ipAddress  String?   @map("ip_address") @db.VarChar(45)
+  status     String?   @db.VarChar(20)
+  lastSeenAt DateTime? @map("last_seen_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  site       Site?     @relation(fields: [siteId], references: [id])
+
+  @@map("tbl_gateways")
+}
+
+model Project {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  title       String?   @db.VarChar(100)
+  description String?
+  tenantId    String?   @map("tenant_id") @db.Uuid
+  tenantName  String?   @map("tenant_name") @db.VarChar(300)
+  companyId   String?   @map("company_id") @db.Uuid
+  companyName String?   @map("company_name") @db.VarChar(300)
+  status      String?   @db.VarChar(20)
+  startDate   DateTime? @default(now()) @map("start_date") @db.Date
+  finishDate  DateTime? @map("finish_date") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy   String?   @map("created_by") @db.Uuid
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  company     Company?  @relation(fields: [companyId], references: [id])
+  tenant      Tenant?   @relation(fields: [tenantId], references: [id])
+
+  @@map("tbl_projects")
+}
+
+model Invoice {
+  id                String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  sent              Int           @default(0)
+  datesend          DateTime      @default(now()) @db.Date
+  tenantId          String?       @map("tenant_id") @db.Uuid
+  tenantName        String?       @map("tenant_name") @db.VarChar(100)
+  companyId         String?       @map("company_id") @db.Uuid
+  companyName       String?       @map("company_name") @db.VarChar(100)
+  // Konteks penagihan: bulan yang ditagih (YYYY-MM) + snapshot jendela WBP.
+  // Tarif seragam per tenant, jadi tidak ada referensi rate/site di header;
+  // rincian per-site diturunkan on-demand dari tbl_daily_summary.
+  billingPeriod     String?       @map("billing_period") @db.VarChar(7)
+  peakStartHour     Int?          @map("peak_start_hour")
+  peakEndHour       Int?          @map("peak_end_hour")
+  number            String?       @db.VarChar(100)
+  date              DateTime      @default(now()) @db.Date
+  dueDate           DateTime?     @map("due_date") @db.Date
+  currency          String?       @db.VarChar(5)
+  status            String?       @db.VarChar(20)
+  discountPercent   String        @default("0") @map("discount_percent") @db.VarChar(50)
+  discountTotal     String        @default("0") @map("discount_total") @db.VarChar(50)
+  discountType      String?       @map("discount_type") @db.VarChar(100)
+  subtotal          String        @default("0") @db.VarChar(50)
+  totalTax          String        @default("0") @map("total_tax") @db.VarChar(50)
+  total             String        @default("0") @db.VarChar(50)
+  adjustment        String        @default("0") @db.VarChar(50)
+  addedfrom         String?       @map("addedfrom") @db.VarChar(100)
+  companyNote       String?       @map("company_note") @db.VarChar(100)
+  adminNote         String?       @map("admin_note") @db.VarChar(100)
+  isRecurring       Int           @default(0) @map("is_recurring")
+  recurringType     String?       @map("recurring_type") @db.VarChar(50)
+  lastRecurringDate DateTime?     @map("last_recurring_date") @db.Timestamptz(6)
+  terms             String?
+  billingStreet     String?       @map("billing_street") @db.VarChar(100)
+  billingCity       String?       @map("billing_city") @db.VarChar(100)
+  billingState      String?       @map("billing_state") @db.VarChar(100)
+  billingZip        String?       @map("billing_zip") @db.VarChar(100)
+  billingCountry    String?       @map("billing_country") @db.VarChar(100)
+  shippingStreet    String?       @map("shipping_street") @db.VarChar(100)
+  shippingCity      String?       @map("shipping_city") @db.VarChar(100)
+  shippingState     String?       @map("shipping_state") @db.VarChar(100)
+  shippingZip       String?       @map("shipping_zip") @db.VarChar(100)
+  shippingCountry   String?       @map("shipping_country") @db.VarChar(100)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy         String?       @map("created_by") @db.Uuid
+  updatedAt         DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy         String?       @map("updated_by") @db.Uuid
+  company           Company?      @relation(fields: [companyId], references: [id])
+  tenant            Tenant?       @relation(fields: [tenantId], references: [id])
+  items             InvoiceItem[]
+
+  @@map("tbl_invoices")
+}
+
+model InvoiceItem {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  invoiceId String?  @map("invoice_id") @db.Uuid
+  qty       String   @default("0") @db.VarChar(50)
+  unit      String?  @db.VarChar(100)
+  rate      String   @default("0") @db.VarChar(50)
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("tbl_invoices_items")
+}

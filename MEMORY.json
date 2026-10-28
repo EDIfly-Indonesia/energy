@@ -1,0 +1,76 @@
+# HERMES MCP SYSTEM MEMORY: PLTS ENERGY PLATFORM
+> Context Contextual Store for Model Context Protocol (MCP) Integration
+
+```json
+{
+  "project_metadata": {
+    "project_name": "PLTS Energy Platform",
+    "architecture_type": "Event-Driven Microservices",
+    "root_directory": "/opt/energy",
+    "timezone": "Asia/Jakarta",
+    "primary_language": "Indonesian"
+  },
+  "infrastructure_topology": {
+    "server_os": "Ubuntu 22.04 LTS Hardened",
+    "container_orchestrator": "Docker Compose (Modular)",
+    "networks": {
+      "energy-public": "172.30.10.0/24",
+      "energy-core": "172.30.20.0/24",
+      "energy-monitoring": "172.30.30.0/24",
+      "energy-internal": "172.30.40.0/24"
+    }
+  },
+  "database_credentials_context": {
+    "postgresql": {
+      "container": "energy-postgres",
+      "database": "energy_platform",
+      "user": "energy_app",
+      "port": 5432,
+      "tables_core": ["tbl_tenants", "tbl_companies", "tbl_sites", "tbl_devices", "tbl_alarms", "tbl_telemetry_mappings", "tbl_audit_logs"]
+    },
+    "influxdb": {
+      "container": "energy-influxdb",
+      "org": "energy_platform",
+      "buckets": ["telemetry", "energy", "power", "alarm", "weather"],
+      "port": 8086
+    },
+    "redis": {
+      "container": "energy-redis",
+      "port": 6379,
+      "use_cases": ["session", "api_cache", "rate_limit", "otp"]
+    }
+  },
+  "messaging_brokers": {
+    "kafka": {
+      "container": "energy-kafka",
+      "mode": "KRaft",
+      "topics": ["telemetry.raw", "telemetry.parser", "telemetry.clean", "telemetry.alarm", "telemetry.notification"],
+      "retention_hours": 168
+    },
+    "rabbitmq": {
+      "container": "energy-rabbitmq",
+      "management_port": 15672,
+      "amqp_port": 5672,
+      "mqtt_port": 1883,
+      "queues": ["notification.queue", "sms.queue", "email.queue", "worker.queue", "retry.queue", "deadletter.queue"]
+    }
+  },
+  "rbac_roles": [
+    "Super Administrator",
+    "Administrator",
+    "Tenant Admin",
+    "Tenant User",
+    "Installer/Commissioning",
+    "Finance"
+  ],
+  "vendor_integrations": {
+    "sungrow": {
+      "status": "Verified",
+      "auth_endpoint": "/openapi/login",
+      "data_endpoint": "/openapi/getPowerStationList",
+      "auth_type": "Bearer Token + x-access-key + sys_code"
+    },
+    "supported_vendors": ["Sungrow", "Huawei", "Growatt", "Goodwe", "SMA", "ABB", "Schneider", "Custom Modbus"]
+  }
+}
+```

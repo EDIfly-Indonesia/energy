@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 43" fill="none"
+     role="img" aria-label="Konektor">
+  <!-- Ikon generik (dipakai saat tipe belum dipilih). Direkonstruksi dari
+       public/assets/images/connector.png pada kanvas aslinya 40x43. -->
+  <circle cx="19.5" cy="18" r="16" stroke="currentColor" stroke-width="4"/>
+
+  <!-- Dasar: badan lebar dengan slot dan dua kontak -->
+  <path fill="currentColor" fill-rule="evenodd" stroke="none"
+        d="M6 28H34A6 6 0 0 1 40 34A6 6 0 0 1 34 40H6A6 6 0 0 1 0 34A6 6 0 0 1 6 28Z
+           M10 31.5H30A3.5 3.5 0 0 1 33.5 35A3.5 3.5 0 0 1 30 38.5H10A3.5 3.5 0 0 1 6.5 35A3.5 3.5 0 0 1 10 31.5Z"/>
+  <circle cx="7.5" cy="34.5" r="3" fill="currentColor"/>
+  <circle cx="31.5" cy="34.5" r="3" fill="currentColor"/>
+
+  <!-- 7 pin di dalam housing (2-3-2) -->
+  <g fill="currentColor">
+    <circle cx="15" cy="8" r="2.5"/>
+    <circle cx="24" cy="8" r="2.5"/>
+    <circle cx="11" cy="14" r="3.5"/>
+    <circle cx="19.5" cy="14" r="3.5"/>
+    <circle cx="28" cy="14" r="3.5"/>
+    <circle cx="15" cy="20.5" r="3.5"/>
+    <circle cx="24" cy="20.5" r="3.5"/>
+  </g>
+</svg>

@@ -1,0 +1,121 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Runtime data
+lib-cov
+coverage/
+.nyc_output/
+.grunt
+.lock-wscript
+
+# Build outputs
+build/
+dist/
+out/
+.next/
+.nuxt/
+.cache/
+
+# Testing
+.jest/
+coverage/
+*.lcov
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+.metadata/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+
+# Database files
+*.sqlite
+*.sqlite3
+*.db
+
+# Firebase
+firebase-debug.log
+firebase-debug.*.log
+.firebase/
+*-firebase-adminsdk-*.json
+
+# Uploads and user-generated content
+uploads/
+public/uploads/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# dotenv environment variable files
+.env*
+# Template tanpa nilai rahasia harus ikut repo.
+!.env.example
+
+# SSL certificates
+*.pem
+*.key
+*.cert
+*.crt
+
+# PM2
+.pm2/
+
+# Miscellaneous
+.sass-cache/
+connect.lock
+typings/

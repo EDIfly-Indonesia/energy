@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" fill="none"
+     stroke="currentColor" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"
+     role="img" aria-label="Konektor AC">
+  <!-- Housing Type 2: silinder dengan sisi atas rata (keyway), busur r=209.
+       Titik potong atas dihitung: y=80.5, setengah-lebar=164. -->
+  <path d="M83.5 80.5H411.5A209 209 0 1 1 83.5 80.5Z"/>
+
+  <!-- Baris atas: 2 pin kecil (CP/PP) -->
+  <circle cx="183.5" cy="133.5" r="25.5"/>
+  <circle cx="311.5" cy="133.5" r="25.5"/>
+
+  <!-- Baris tengah & bawah: 5 pin besar, masing-masing dua cincin konsentris -->
+  <g stroke-width="14.7">
+    <circle cx="122" cy="212" r="49"/>
+    <circle cx="247.5" cy="212" r="49"/>
+    <circle cx="373" cy="212" r="49"/>
+    <circle cx="184.5" cy="323.5" r="48.9"/>
+    <circle cx="310.5" cy="323.5" r="48.9"/>
+  </g>
+  <g stroke-width="14.8">
+    <circle cx="122" cy="212" r="19.8"/>
+    <circle cx="247.5" cy="212" r="19.8"/>
+    <circle cx="373" cy="212" r="19.8"/>
+    <circle cx="184.5" cy="323.5" r="19.8"/>
+    <circle cx="310.5" cy="323.5" r="19.8"/>
+  </g>
+</svg>

@@ -1,0 +1,39 @@
+services:
+  gocaz-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gocaz-dashboard
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      TZ: Asia/Jakarta
+    volumes:
+      - ./:/var/www/html
+      - ./application/cache:/var/www/html/application/cache
+      - ./application/logs:/var/www/html/application/logs
+      - ./uploads:/var/www/html/uploads
+      - ./product_images:/var/www/html/product_images
+    networks:
+      - energy-core
+
+  gocaz-dashboard-nginx:
+    image: nginx:alpine
+    container_name: gocaz-dashboard-nginx
+    restart: unless-stopped
+    depends_on:
+      - gocaz-dashboard
+    ports:
+      - "8082:80"
+    volumes:
+      - ./:/var/www/html:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./uploads:/var/www/html/uploads:ro
+      - ./product_images:/var/www/html/product_images:ro
+    networks:
+      - energy-core
+
+networks:
+  energy-core:
+    external: true

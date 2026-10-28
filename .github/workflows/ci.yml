@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # SPKLU backend — Fastify. Syntax check + dependency resolution only for now;
+  # the promo DB/API/e2e suites (test/run.js) require the live PostgreSQL schema
+  # and are run against the deployed DB, not in this CI gate.
+  # ---------------------------------------------------------------------------
+  spklu-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: applications/spklu/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: applications/spklu/backend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Syntax check
+        run: |
+          set -e
+          node --check server.js
+          node --check app.js
+          for f in $(find src -name '*.js'); do node --check "$f"; done
+
+  # ---------------------------------------------------------------------------
+  # SPKLU dashboard — React + Vite + TS, deps managed with Bun.
+  # ---------------------------------------------------------------------------
+  spklu-dashboard:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: applications/spklu/dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Typecheck + build
+        run: bun run build
+
+  # ---------------------------------------------------------------------------
+  # PLTS backend — Node (Fastify/Express; Prisma scripts in package.json are
+  # stale — no schema.prisma exists). Gate on deps + syntax only.
+  # ---------------------------------------------------------------------------
+  plts-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: applications/plts/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: applications/plts/backend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Syntax check
+        run: |
+          set -e
+          node --check src/app.js
+          for f in $(find src -name '*.js'); do node --check "$f"; done
+
+  # ---------------------------------------------------------------------------
+  # PLTS dashboard (React + Vite + TS).
+  # ---------------------------------------------------------------------------
+  plts-react:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: applications/plts/react
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: applications/plts/react/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck + build
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # PLTS dashboard (Vue + Vite).
+  # ---------------------------------------------------------------------------
+  plts-vue:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: applications/plts/vue
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: applications/plts/vue/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build

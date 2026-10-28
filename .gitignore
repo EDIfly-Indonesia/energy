@@ -1,0 +1,107 @@
+# ===== Dependencies =====
+node_modules/
+**/node_modules/
+vendor/
+
+# ===== Python =====
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# ===== Environment & secrets =====
+.env
+.env.*
+!.env.example
+!**/.env.example
+*.pem
+*.key
+firebase.json
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
+
+# ===== Runtime data / volumes (localhost & production mounts) =====
+/data/
+/backup/
+/backups/
+/logs/
+**/logs/
+nohup.out
+*.log
+*.pid
+.pm2/
+*.pid.lock
+
+# ===== Build outputs =====
+dist/
+build/
+coverage/
+.nyc_output/
+
+# ===== Mobile / packaged artifacts =====
+*.apk
+*.aab
+/applications/spklu/apk/
+
+# ===== Prisma engine binaries =====
+query-engine.gz
+libquery_engine*.gz
+prisma-engines/
+
+# ===== Uploads / user-generated content =====
+uploads/
+public/uploads/
+
+# ===== Database dumps containing PRODUCTION data (excluded; schema kept in
+#      migrations/) =====
+/applications/spklu/db_schema.sql
+/applications/spklu/backend/database/db.sql
+/applications/spklu/backend/database/migrate_to_postgres.sql
+/applications/spklu/backups/
+
+# ===== User-generated content / runtime logs (not part of the product) =====
+/applications/spklu/backend/log/
+/applications/spklu/backend/images/
+
+# ===== Local AI-agent tool configs (not part of the product) =====
+.agents/
+.augment/
+.claude/
+.codebuddy/
+.codewhale/
+.commandcode/
+.continue/
+.cursor/
+.factory/
+.kilocode/
+.kiro/
+.opencode/
+.qoder/
+.roo/
+.trae/
+.warp/
+.windsurf/
+
+# ===== OS / editor =====
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.bak
+*.bak.*
+
+# ===== Stale build outputs (rebuilt from source in react/ and vue/) =====
+/applications/plts/frontend/
+/applications/plts/react/assets/
+
+# ===== Stray symlinks pointing into gitignored dirs (node_modules/dist) =====
+/applications/plts/backend/src/seeders/node_modules
+/applications/plts/backend/src/seeders/.prisma
+/applications/plts/react/scada-react
+
+# ===== AI-agent tooling (kept local; curated rules live in /rules) =====
+.gemini/skills/
+.github/prompts/

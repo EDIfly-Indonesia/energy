@@ -1,0 +1,48 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Composer
+/vendor/
+/composer.phar
+
+# CodeIgniter writable/runtime
+/application/cache/*
+!/application/cache/index.html
+!/application/cache/.htaccess
+/application/logs/*
+!/application/logs/index.html
+!/application/logs/.htaccess
+
+# Upload/runtime files
+/uploads/*
+!/uploads/.gitkeep
+/product_images/*
+!/product_images/.gitkeep
+
+# Local/dev files
+cookies.txt
+info.php
+*.log
+*.tmp
+*.bak
+*.swp
+.DS_Store
+Thumbs.db
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS
+desktop.ini
+
+# Docker/local overrides
+docker-compose.override.yml
+
+# Excel/generated exports
+/excel/*.xls
+/excel/*.xlsx
+/assets/excel/*.xls
+/assets/excel/*.xlsx

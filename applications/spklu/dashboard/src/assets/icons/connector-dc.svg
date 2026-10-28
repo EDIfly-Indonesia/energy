@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" fill="none"
+     role="img" aria-label="Konektor DC">
+  <!-- Modul atas: keyline tipis + badan terisi, mengikuti Type 2 (r=148.5 / 118.5) -->
+  <path d="M150.1 23.5H352.9A148.5 148.5 0 1 1 150.1 23.5Z"
+        stroke="currentColor" stroke-width="9" stroke-linejoin="round"/>
+
+  <!-- Badan terisi dengan 7 lubang pin (evenodd = lubang transparan) -->
+  <path fill="currentColor" fill-rule="evenodd" stroke="none"
+        d="M161.9 55H341.1A118.5 118.5 0 1 1 161.9 55Z
+           M192.5 84.5a22 22 0 1 0 44 0a22 22 0 1 0-44 0Z
+           M267 84.5a22 22 0 1 0 44 0a22 22 0 1 0-44 0Z
+           M141.5 137.5a31.5 31.5 0 1 0 63 0a31.5 31.5 0 1 0-63 0Z
+           M220.5 137.5a31.5 31.5 0 1 0 63 0a31.5 31.5 0 1 0-63 0Z
+           M299.5 139a31.5 31.5 0 1 0 63 0a31.5 31.5 0 1 0-63 0Z
+           M180 200a32 32 0 1 0 64 0a32 32 0 1 0-64 0Z
+           M259 200a32 32 0 1 0 64 0a32 32 0 1 0-64 0Z"/>
+
+  <!-- Inti pin (dot) di tengah setiap lubang -->
+  <g fill="currentColor" stroke="none">
+    <circle cx="214.5" cy="84.5" r="12"/>
+    <circle cx="289" cy="84.5" r="12"/>
+    <circle cx="173" cy="137.5" r="11.5"/>
+    <circle cx="252" cy="137.5" r="11.5"/>
+    <circle cx="331" cy="139" r="11.5"/>
+    <circle cx="212" cy="200" r="11.5"/>
+    <circle cx="291" cy="200" r="11.5"/>
+  </g>
+
+  <!-- Modul DC bawah: pill dengan dua pin arus searah besar -->
+  <path d="M179 298.5H324A88.5 88.5 0 0 1 412.5 387A88.5 88.5 0 0 1 324 475.5H179A88.5 88.5 0 0 1 90.5 387A88.5 88.5 0 0 1 179 298.5Z"
+        stroke="currentColor" stroke-width="9" stroke-linejoin="round"/>
+
+  <path fill="currentColor" fill-rule="evenodd" stroke="none"
+        d="M178.5 325H324.5A61.5 61.5 0 0 1 386 386.5A61.5 61.5 0 0 1 324.5 448H178.5A61.5 61.5 0 0 1 117 386.5A61.5 61.5 0 0 1 178.5 325Z
+           M132.5 386.5a46 46 0 1 0 92 0a46 46 0 1 0-92 0Z
+           M278.5 386.5a46 46 0 1 0 92 0a46 46 0 1 0-92 0Z"/>
+
+  <g fill="currentColor" stroke="none">
+    <circle cx="178.5" cy="386.5" r="25.5"/>
+    <circle cx="324.5" cy="386.5" r="25.5"/>
+  </g>
+</svg>

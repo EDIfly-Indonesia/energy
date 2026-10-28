@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-gray-200 dark:border-scada-border;
+  }
+  body {
+    @apply bg-gray-50 dark:bg-scada-bg text-gray-900 dark:text-scada-text;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white dark:bg-scada-card rounded-lg shadow-lg border border-gray-200 dark:border-scada-border p-6;
+  }
+  .card-title {
+    @apply text-lg font-semibold text-gray-900 dark:text-scada-text mb-4;
+  }
+  .btn-primary {
+    @apply bg-scada-600 hover:bg-scada-700 text-white font-medium py-2 px-4 rounded-lg transition-colors;
+  }
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 dark:bg-scada-border dark:hover:bg-gray-600 text-gray-700 dark:text-scada-text font-medium py-2 px-4 rounded-lg transition-colors;
+  }
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-success {
+    @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
+  }
+  .badge-danger {
+    @apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
+  }
+  .badge-warning {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200;
+  }
+  .badge-info {
+    @apply bg-green-100 text-blue-800 dark:bg-green-900 dark:text-blue-200;
+  }
+}

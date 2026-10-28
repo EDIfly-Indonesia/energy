@@ -1,0 +1,40 @@
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: ${KAFKA_CONTAINER}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Pengaturan KRaft Mode (Tanpa Zookeeper)
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk" # Wajib untuk inisialisasi KRaft di Confluent
+      # Pengaturan Sesuai Roadmap
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_LOG_RETENTION_HOURS: 168 # Sesuai aturan Retention 7 hari
+      TZ: ${TZ}
+    ports:
+      - "9092:9092"
+    volumes:
+      - /opt/energy/data/kafka:/var/lib/kafka/data
+    networks:
+      - energy-core
+    healthcheck:
+      # Confluent menggunakan nama perintah tanpa akhiran .sh
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+networks:
+  energy-core:
+    external: true

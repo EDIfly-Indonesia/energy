@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-gray-200 dark:border-scada-border;
+  }
+  body {
+    @apply bg-gray-50 dark:bg-scada-bg text-gray-900 dark:text-scada-text;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white dark:bg-scada-card rounded-lg shadow-lg border border-gray-200 dark:border-scada-border p-6;
+  }
+  .btn-primary {
+    @apply bg-scada-600 hover:bg-scada-700 text-white font-medium py-2 px-4 rounded-lg transition-colors;
+  }
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 dark:bg-scada-border dark:hover:bg-gray-600 text-gray-700 dark:text-scada-text font-medium py-2 px-4 rounded-lg transition-colors;
+  }
+}

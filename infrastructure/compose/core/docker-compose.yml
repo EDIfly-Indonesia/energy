@@ -1,0 +1,19 @@
+# /opt/energy/infrastructure/compose/core/docker-compose.yml
+name: energy-platform
+
+include:
+  - influxdb/compose.yml
+  - kafka/compose.yml
+  - postgresql/compose.yml
+  - rabbitmq/compose.yml
+  - redis/compose.yml
+  # - grafana/compose.yml # Buka jika grafana sudah siap
+
+# TIDAK ADA services: api dan frontend
+# Karena backend dan frontend berjalan NATIVE dengan PM2/Node.js
+
+networks:
+  energy-core:
+    external: true
+  energy-public:
+    external: true

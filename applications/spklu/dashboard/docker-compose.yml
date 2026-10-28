@@ -1,0 +1,16 @@
+services:
+  dashboard:
+    build:
+      context: .
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+    container_name: spklu-dashboard
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_PORT:-5173}:5173"
+    networks:
+      - energy-core
+
+networks:
+  energy-core:
+    external: true

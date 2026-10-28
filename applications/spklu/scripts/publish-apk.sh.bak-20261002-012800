@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Publikasikan APK baru ke /spklu/download_apk/.
+# Pemakaian:
+#   publish-apk.sh <apk-file> <versionCode> [versionName] [changelog]
+# Contoh:
+#   publish-apk.sh ./spklu-1.2.0.apk 12 "1.2.0" "Perbaikan bug scan QR"
+
+BASE_DIR="${SPKLU_BASE_DIR:-/opt/energy/applications/spklu}"
+APK_DIR="$BASE_DIR/apk"
+PUBLIC_URL="https://energy.edifly-si.com/spklu/download_apk/spklu.apk"
+
+APK_FILE="${1:?Usage: publish-apk.sh <apk-file> <versionCode> [versionName] [changelog]}"
+VERSION_CODE="${2:?versionCode wajib diisi (integer)}"
+VERSION_NAME="${3:-}"
+CHANGELOG="${4:-}"
+
+[[ -f "$APK_FILE" ]] || { echo "APK tidak ditemukan: $APK_FILE"; exit 1; }
+[[ "$VERSION_CODE" =~ ^[0-9]+$ ]] || { echo "versionCode harus integer"; exit 1; }
+
+mkdir -p "$APK_DIR"
+
+# 1. Salin APK ke nama tetap (URL publik tidak pernah berubah).
+cp "$APK_FILE" "$APK_DIR/spklu.apk"
+
+# 2. Hitung metadata.
+SIZE=$(stat -c%s "$APK_DIR/spklu.apk")
+SHA256=$(sha256sum "$APK_DIR/spklu.apk" | cut -d' ' -f1)
+
+# 3. Tulis version.json (source of truth untuk pengecekan versi).
+python3 - "$APK_DIR/version.json" "$VERSION_CODE" "$VERSION_NAME" "$CHANGELOG" "$SIZE" "$SHA256" "$PUBLIC_URL" <<'PY'
+import json, sys
+path, code, name, changelog, size, sha, url = sys.argv[1:8]
+data = {
+    "versionName": name or f"1.0.{code}",
+    "versionCode": int(code),
+    "minVersionCode": int(code),   # samakan dulu; turunkan bila ada versi minimum wajib
+    "url": url,
+    "size": int(size),
+    "sha256": sha,
+    "changelog": changelog or "",
+    "force": False,
+}
+with open(path, "w") as f:
+    json.dump(data, f, indent=2, ensure_ascii=False)
+    f.write("\n")
+print(json.dumps(data, indent=2, ensure_ascii=False))
+PY
+
+echo
+echo "APK terpublikasi:"
+echo "  Cek versi : https://energy.edifly-si.com/spklu/download_apk/version.json"
+echo "  Download  : $PUBLIC_URL"
+echo "  versionCode=$VERSION_CODE  versionName=${VERSION_NAME:-1.0.$VERSION_CODE}"
