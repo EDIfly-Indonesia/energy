@@ -15,14 +15,12 @@ Status ringkas:
 | 2.5 Test backend | ✅ suite permanen, 89 test lulus |
 | 3. GUI Admin | ✅ selesai, 5 halaman + QA 25 cek |
 | 4. Portal Mitra | ✅ selesai, QA 23 cek + 89 test backend |
-| 5. Mobile Flutter | 🟡 **dihentikan di tengah D.2** — kode kompilasi bersih |
-| 6. Rilis | ⬜ |
+| 5. Mobile Flutter | ✅ selesai (D.1–D.4), 135 test + 19 cek kontrak |
+| 6. Rilis | ✅ selesai — v1.2.5 (code 34) live |
 
-**Lanjutkan dari Fase 5, bagian D.2b.** Rincian status per berkas ada di
-`applications/mobile/TODO_MOBILE_BILLING.md` bagian D.
-Fase 0–4 selesai. Dua hal terbuka di luar Fase 5: (1) akun portal masih dibuat
-lewat SQL — perlu UI admin sebelum go-live; (2) belum ada build/deploy mobile
-(gate §E).
+**FASE 0–6 SELESAI. Fitur promo live di v1.2.5.**
+Tersisa opsional: D.5 (status kendaraan di profil) dan drop `t_chargebox.pju`
+setelah v1.2.5 benar-benar terpasang di pengguna.
 
 Rujukan:
 - `KEPUTUSAN-BIAYA-CHARGE.md` — formula biaya
@@ -571,40 +569,88 @@ Pembuatannya masih lewat SQL (`INSERT` dengan `password_hash` sha256). Ini
 perlu ditambahkan sebelum go-live, kalau tidak admin harus menyentuh DB setiap
 kali ada hotel/asuransi baru.
 
-## FASE 5 — Mobile Flutter 🟡 DIHENTIKAN DI TENGAH (2026-10-28)
+## FASE 5 — Mobile Flutter ✅ SELESAI (2026-10-28)
 
-Detail teknis lengkap ada di `applications/mobile/TODO_MOBILE_BILLING.md` §D.
-Ringkasan status:
+Detail per berkas ada di `applications/mobile/TODO_MOBILE_BILLING.md` §D.
 
-**Sudah dikerjakan (kode kompilasi bersih, 113 test lulus):**
+- [x] `Quote` menerima 8 field promo + `promoDipakai` / `promoDitolak`
+- [x] `promo_alasan.dart` — 12 pesan bahasa pengguna, katalog dijaga test
+- [x] `charging_flow_state.kodePromo`
+- [x] `getHarga()` **dan** `_buildOrderData()` mengirim `kode_promo`
+- [x] `terapkanPromo()` / `hapusPromo()` — kode baru menggantikan yang lama
+- [x] Kartu kode promo di layar pembelian (input/Terapkan atau kode/Hapus)
+- [x] Baris Harga normal + Potongan (nama promo), catatan `potonganDibatasi`,
+      pesan penolakan berbahasa pengguna
+- [x] Slot iklan di beranda + pencatatan impresi saat iklan terlihat
+- [ ] D.5 status kendaraan di profil (opsional, belum)
 
-- [x] `Quote` menerima 8 field promo + getter `promoDipakai`/`promoDitolak`
-- [x] `model/promo_alasan.dart` — 12 pesan bahasa pengguna + normalisasi kode
-- [x] `charging_flow_state.kodePromo` (state, bukan widget)
-- [x] `getHarga()` mengirim `kode_promo`
+**Hasil uji:** `flutter test` **135 lulus**, `dart analyze` 0 error,
+`qa/mobile-contract-check.cjs` di VM **19 lulus** (bentuk respons server vs
+parser klien).
 
-**Belum:**
+**Bug layout ditemukan & diperbaiki:** `_buildInfoRow` overflow horizontal di
+layar ~400px karena label panjang tidak fleksibel. Sekarang `Expanded` +
+`Flexible`.
 
-- [ ] `_buildOrderData()` belum mengirim `kode_promo` — quote berpromo tapi
-      order tidak. Ini celah pertama yang harus ditutup.
-- [ ] Method `terapkanPromo()` / `hapusPromo()` di viewmodel
-- [ ] UI input kode promo di `input_kwh.dart`
-- [ ] Tampilkan harga normal, potongan, `potonganDibatasi`, dan pesan penolakan
-- [ ] Slot iklan di homepage (`GET /promo/iklan` sudah siap di backend)
-- [ ] Status kendaraan di profil (opsional)
+## FASE 6 — Rilis ✅ SELESAI (2026-10-28)
 
-Tidak ada blocker backend: `getharga`/`simpanorder` sudah menerima `kode_promo`,
-klaim budget saat pembayaran, dan endpoint iklan sudah diuji.
+- [x] `versionCode` 33 → **34**, `versionName` 1.2.4 → **1.2.5**
+- [x] `flutter build apk --release` — 84.827.409 byte
+- [x] `publish-apk.sh` — sertifikat cocok, rilis lama dicadangkan ke
+      `apk/backup/20261028-141518`
+- [x] Entri `berita` untuk pengguna: "Versi 1.2.5 sudah tersedia"
+- [x] Verifikasi publik: `version.json` 1.2.5/code 34, APK HTTP 200
+      (84.827.409 byte), berita tampil di `/informasi/getberita_user`
+- [ ] **Drop `t_chargebox.pju`** — TUNGGU v1.2.5 benar-benar terpasang di
+      pengguna. Rilis baru diunggah hari ini; pengguna masih bisa memakai versi
+      lama yang mungkin membaca kolom itu.
 
-## FASE 6 — Rilis
+### Blocker yang ditutup sebelum rilis
 
-- [ ] Naikkan `versionCode` di `pubspec.yaml`
-- [ ] `flutter build apk --release`
-- [ ] `publish-apk.sh` + `version.json` (changelog menyebut promo)
-- [ ] Entri `berita` untuk pengguna
-- [ ] Verifikasi publik: `version.json`, APK terunduh, berita tampil
-- [ ] **Setelah rilis ini terpasang di pengguna**, baru boleh drop
-      `t_chargebox.pju` (lihat `TODO-BIAYA-CHARGE.md` §6)
+Definition of done menuntut ketiga skenario bisa dijalankan **tanpa intervensi
+SQL**. Kenyataannya akun portal (`t_portal_user`) belum punya UI admin —
+membuatnya harus `INSERT` manual dengan hash sha256. Itu membuat skenario hotel
+dan asuransi tidak bisa dijalankan admin biasa.
+
+Ditambahkan sebelum rilis:
+
+- `controller-admin-promo.js`: `listPortalUser`, `createPortalUser`,
+  `updatePortalUser`, `deletePortalUser`. Password di-hash sha256 (sama dengan
+  yang diverifikasi `controller-portal.js`), minimal 8 karakter, dan
+  `password_hash` **tidak pernah** dikirim ke klien.
+- `admin.routes.js`: 4 route `/admin/promo-mitra/:id/portal-user` dan
+  `/admin/portal-user/:id`.
+- `MitraPromo.tsx`: panel "Akun Portal" per mitra — buat akun, ganti password,
+  aktif/nonaktifkan, hapus.
+
+Bukti: `qa/portal-account-qa.cjs` **16/16 lulus** (termasuk akun nonaktif tidak
+bisa login, password lama mati setelah diganti, riwayat peserta tetap ada
+setelah akun dihapus), dan `qa/portal-ui-qa.cjs` **6/6 lulus** (akun dibuat
+lewat form benar-benar bisa login ke portal).
+
+### Temuan saat rilis: inbox pengguna penuh notifikasi uji
+
+Ada **56 berita notifikasi** ("Pembayaran Sukses", "Menunggu Pembayaran
+Charging") sisa transaksi uji sepanjang sesi. Transaksinya sudah dihapus, tetapi
+notifikasinya tertinggal — pengguna akan melihat riwayat pembayaran yang tidak
+pernah mereka lakukan. Dibersihkan sebelum rilis; inbox kini berisi 1 berita
+rilis.
+
+Catatan untuk ke depan: skrip QA yang membuat transaksi lewat API **wajib** ikut
+menghapus baris `berita` dengan `no_trans` terkait, bukan hanya `t_transaction`.
+
+### Verifikasi akhir
+
+| Item | Hasil |
+|---|---|
+| `version.json` publik | 1.2.5, code 34, sha256 `ce9f435c…` |
+| APK diunduh | HTTP 200, 84.827.409 byte, `application/vnd.android.package-archive` |
+| Checksum lokal vs VM | **cocok** |
+| Backend test | 89/89 lulus |
+| Berita lewat endpoint aplikasi | tampil, `dibaca=false` |
+| Data promo | 0 mitra/promo/peserta/iklan/portal/transaksi |
+| Data produksi | 10 artikel, 2 chargebox, 1 user, 1 inbox |
+| Harga normal | 57.890 (tidak berubah) |
 
 ---
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { get, post, put, del } from '../api';
-import { Plus, Pencil, Trash2, Save, X, KeyRound, Ban } from 'lucide-react';
+import { Plus, Pencil, Trash2, Save, X, KeyRound, Ban, Users } from 'lucide-react';
 import DataTable from '../components/DataTable';
 import Modal from '../components/Modal';
 
@@ -27,6 +27,16 @@ interface MitraPromo {
   punya_api_key: boolean;
   api_key_last_used: string | null;
   jumlah_promo: number;
+}
+
+interface PortalUser {
+  id_portal_user: number;
+  email: string;
+  nama: string | null;
+  role: string;
+  aktif: boolean;
+  last_login: string | null;
+  created_at: string;
 }
 
 interface FormState {
@@ -78,6 +88,13 @@ export default function MitraPromoPage() {
 
   // API key: plaintext hanya ditampilkan sekali setelah dibuat.
   const [apiKeyBaru, setApiKeyBaru] = useState<{ nama: string; key: string } | null>(null);
+
+  // Akun portal mitra (hotel/asuransi). Tanpa UI ini admin harus INSERT SQL.
+  const [portalMitra, setPortalMitra] = useState<MitraPromo | null>(null);
+  const [portalUsers, setPortalUsers] = useState<PortalUser[]>([]);
+  const [portalForm, setPortalForm] = useState({ email: '', password: '', nama: '', role: 'operator' });
+  const [portalMsg, setPortalMsg] = useState('');
+  const [portalSaving, setPortalSaving] = useState(false);
 
   async function load() {
     const r = await get<MitraPromo[]>('/admin/promo-mitra');
@@ -176,6 +193,69 @@ export default function MitraPromoPage() {
     const r = await del(`/admin/promo-mitra/${m.id_mitra_promo}/api-key`);
     setMsg(r.message);
     if (r.success) load();
+  }
+
+  // ---------------------------------------------------- akun portal
+
+  async function bukaPortal(m: MitraPromo) {
+    setPortalMitra(m);
+    setPortalMsg('');
+    setPortalForm({ email: '', password: '', nama: '', role: 'operator' });
+    await muatPortalUser(m.id_mitra_promo);
+  }
+
+  async function muatPortalUser(idMitra: number) {
+    const r = await get<PortalUser[]>(`/admin/promo-mitra/${idMitra}/portal-user`);
+    if (r.success) setPortalUsers(r.data);
+    else setPortalMsg(r.message);
+  }
+
+  async function buatPortalUser(e: React.FormEvent) {
+    e.preventDefault();
+    if (!portalMitra) return;
+    setPortalSaving(true);
+    setPortalMsg('');
+
+    const r = await post(`/admin/promo-mitra/${portalMitra.id_mitra_promo}/portal-user`, {
+      email: portalForm.email.trim().toLowerCase(),
+      password: portalForm.password,
+      nama: portalForm.nama.trim() || null,
+      role: portalForm.role,
+    });
+
+    setPortalSaving(false);
+    setPortalMsg(r.message);
+    if (r.success) {
+      setPortalForm({ email: '', password: '', nama: '', role: 'operator' });
+      muatPortalUser(portalMitra.id_mitra_promo);
+    }
+  }
+
+  async function togglePortalAktif(u: PortalUser) {
+    const r = await put(`/admin/portal-user/${u.id_portal_user}`, { aktif: !u.aktif });
+    setPortalMsg(r.message);
+    if (r.success && portalMitra) muatPortalUser(portalMitra.id_mitra_promo);
+  }
+
+  async function resetPortalPassword(u: PortalUser) {
+    const baru = prompt(
+      `Password baru untuk ${u.email} (minimal 8 karakter):\n\n` +
+        'Password lama tidak bisa dilihat, hanya bisa diganti.'
+    );
+    if (baru === null) return;
+    if (baru.length < 8) {
+      setPortalMsg('Password minimal 8 karakter');
+      return;
+    }
+    const r = await put(`/admin/portal-user/${u.id_portal_user}`, { password: baru });
+    setPortalMsg(r.message);
+  }
+
+  async function hapusPortalUser(u: PortalUser) {
+    if (!confirm(`Hapus akun portal ${u.email}?\n\nRiwayat peserta yang pernah didaftarkan tetap tersimpan.`)) return;
+    const r = await del(`/admin/portal-user/${u.id_portal_user}`);
+    setPortalMsg(r.message);
+    if (r.success && portalMitra) muatPortalUser(portalMitra.id_mitra_promo);
   }
 
   return (
@@ -324,6 +404,125 @@ export default function MitraPromoPage() {
         </div>
       )}
 
+      {portalMitra && (
+        <div className="panel">
+          <div className="flex items-center justify-between">
+            <h3>Akun Portal — {portalMitra.nama}</h3>
+            <button className="ghost" onClick={() => setPortalMitra(null)}>
+              <X size={16} /> Tutup
+            </button>
+          </div>
+
+          <p className="text-sm text-slate-400">
+            Akun ini dipakai front office untuk mendaftarkan pelanggan lewat portal.
+            Password tidak bisa dilihat lagi setelah dibuat — serahkan ke mitra saat
+            membuat, atau ganti lewat tombol Ganti Password.
+          </p>
+
+          <form onSubmit={buatPortalUser}>
+            <div className="grid-2">
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={portalForm.email}
+                  onChange={(e) => setPortalForm((f) => ({ ...f, email: e.target.value }))}
+                  placeholder="fo@hotelanda.com"
+                  required
+                />
+              </label>
+              <label>
+                Password (min. 8 karakter)
+                <input
+                  type="text"
+                  value={portalForm.password}
+                  onChange={(e) => setPortalForm((f) => ({ ...f, password: e.target.value }))}
+                  placeholder="minimal 8 karakter"
+                  minLength={8}
+                  required
+                />
+              </label>
+              <label>
+                Nama Petugas
+                <input
+                  value={portalForm.nama}
+                  onChange={(e) => setPortalForm((f) => ({ ...f, nama: e.target.value }))}
+                  placeholder="mis. Front Office Ubud"
+                />
+              </label>
+              <label>
+                Role
+                <select
+                  value={portalForm.role}
+                  onChange={(e) => setPortalForm((f) => ({ ...f, role: e.target.value }))}
+                >
+                  <option value="operator">Operator</option>
+                  <option value="admin_mitra">Admin Mitra</option>
+                </select>
+              </label>
+            </div>
+            <div className="row">
+              <button type="submit" disabled={portalSaving}>
+                <Save size={16} /> {portalSaving ? 'Menyimpan…' : 'Buat Akun Portal'}
+              </button>
+            </div>
+          </form>
+
+          {portalUsers.length === 0 ? (
+            <p className="text-sm text-slate-400">Belum ada akun portal untuk mitra ini.</p>
+          ) : (
+            <div className="datatable">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>Nama</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Login Terakhir</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {portalUsers.map((u) => (
+                    <tr key={u.id_portal_user}>
+                      <td>{u.email}</td>
+                      <td>{u.nama || '-'}</td>
+                      <td>{u.role === 'admin_mitra' ? 'Admin Mitra' : 'Operator'}</td>
+                      <td>
+                        {u.aktif ? (
+                          <span className="text-emerald-400">Aktif</span>
+                        ) : (
+                          <span className="text-slate-400">Nonaktif</span>
+                        )}
+                      </td>
+                      <td className="text-xs">
+                        {u.last_login ? new Date(u.last_login).toLocaleString('id-ID') : 'belum pernah'}
+                      </td>
+                      <td>
+                        <div className="row">
+                          <button className="ghost" onClick={() => resetPortalPassword(u)}>
+                            <KeyRound size={16} /> Ganti Password
+                          </button>
+                          <button className="ghost" onClick={() => togglePortalAktif(u)}>
+                            <Ban size={16} /> {u.aktif ? 'Nonaktifkan' : 'Aktifkan'}
+                          </button>
+                          <button className="danger" onClick={() => hapusPortalUser(u)}>
+                            <Trash2 size={16} /> Hapus
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {portalMsg && <p className="msg">{portalMsg}</p>}
+        </div>
+      )}
+
       <DataTable
         data={rows}
         rowKey={(m) => m.id_mitra_promo}
@@ -389,6 +588,9 @@ export default function MitraPromoPage() {
                     )}
                   </>
                 )}
+                <button className="ghost" onClick={() => bukaPortal(m)}>
+                  <Users size={16} /> Akun Portal
+                </button>
                 <button className="danger" onClick={() => nonaktifkan(m)}>
                   <Trash2 size={16} /> Nonaktifkan
                 </button>

@@ -171,6 +171,12 @@ module.exports = async function adminRoutes(fastify) {
       promo.post('/admin/promo-mitra/:id/api-key', { schema: { tags: ['promo'], summary: 'Buat/reset API key ATPM', params: s.idParams('ID mitra promo'), security: BEARER } }, promoCtl.resetApiKey);
       promo.delete('/admin/promo-mitra/:id/api-key', { schema: { tags: ['promo'], summary: 'Cabut API key ATPM', params: s.idParams('ID mitra promo'), security: BEARER } }, promoCtl.deleteApiKey);
 
+      // akun portal mitra (hotel/asuransi). Tanpa ini admin harus INSERT SQL.
+      promo.get('/admin/promo-mitra/:id/portal-user', { schema: { tags: ['promo'], summary: 'Daftar akun portal mitra', params: s.idParams('ID mitra promo'), security: BEARER } }, promoCtl.listPortalUser);
+      promo.post('/admin/promo-mitra/:id/portal-user', { schema: { tags: ['promo'], summary: 'Buat akun portal mitra', params: s.idParams('ID mitra promo'), security: BEARER } }, promoCtl.createPortalUser);
+      promo.put('/admin/portal-user/:id', { schema: { tags: ['promo'], summary: 'Ubah akun portal (nama/role/status/password)', params: s.idParams('ID akun portal'), security: BEARER } }, promoCtl.updatePortalUser);
+      promo.delete('/admin/portal-user/:id', { schema: { tags: ['promo'], summary: 'Hapus akun portal', params: s.idParams('ID akun portal'), security: BEARER } }, promoCtl.deletePortalUser);
+
       // promo
       promo.get('/admin/promo', { schema: { tags: ['promo'], summary: 'Daftar promo', security: BEARER } }, promoCtl.listPromo);
       promo.get('/admin/promo/eksposur', { schema: { tags: ['promo'], summary: 'Transaksi dengan klaim promo gagal', security: BEARER } }, promoCtl.listEksposur);

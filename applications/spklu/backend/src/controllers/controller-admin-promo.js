@@ -892,6 +892,149 @@ async function listEksposur(request, reply) {
   }
 }
 
+// ========================================================== AKUN PORTAL
+//
+// Akun portal dipakai front office hotel / petugas asuransi untuk mendaftarkan
+// pelanggan. Tanpa endpoint ini, satu-satunya cara membuat akun adalah INSERT
+// manual dengan hash sha256 — itu melanggar definition of done (ketiga
+// skenario harus bisa dijalankan tanpa intervensi SQL).
+//
+// Password di-hash sha256, sama dengan yang diverifikasi controller-portal.js.
+// Plaintext TIDAK pernah disimpan dan TIDAK bisa ditampilkan ulang; admin yang
+// membuat akun wajib menyerahkan password ke mitra lewat kanal aman.
+
+function hashPassword(plain) {
+  return crypto.createHash('sha256').update(String(plain)).digest('hex');
+}
+
+async function listPortalUser(request, reply) {
+  const idMitra = angka(request.params && request.params.id);
+  if (!idMitra) return gagalValidasi(reply, 'ID mitra tidak valid');
+
+  try {
+    const rows = await query(
+      `SELECT id_portal_user, email, nama, role, aktif, last_login, created_at
+         FROM t_portal_user
+        WHERE id_mitra_promo = $1
+        ORDER BY id_portal_user DESC`,
+      [idMitra]
+    );
+    // password_hash sengaja TIDAK dikirim, bahkan sebagai hash.
+    return ok(reply, 'Berhasil', rows);
+  } catch (err) {
+    console.error('[admin.listPortalUser]', err);
+    return gagal(reply, 'Terjadi kesalahan');
+  }
+}
+
+async function createPortalUser(request, reply) {
+  const idMitra = angka(request.params && request.params.id);
+  if (!idMitra) return gagalValidasi(reply, 'ID mitra tidak valid');
+
+  const b = request.body || {};
+  const email = String(b.email ?? '').trim().toLowerCase();
+  const password = String(b.password ?? '');
+  const nama = b.nama ? String(b.nama).trim() : null;
+  const role = String(b.role ?? 'operator').toLowerCase();
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return gagalValidasi(reply, 'Email tidak valid');
+  }
+  // Minimal 8 karakter: akun ini bisa mendaftarkan pelanggan, jadi jangan
+  // sampai bisa ditebak.
+  if (password.length < 8) {
+    return gagalValidasi(reply, 'Password minimal 8 karakter');
+  }
+  if (!['operator', 'admin_mitra'].includes(role)) {
+    return gagalValidasi(reply, 'Role tidak valid');
+  }
+
+  try {
+    const mitra = await query(
+      `SELECT jenis_mitra, aktif FROM t_promo_mitra WHERE id_mitra_promo = $1`, [idMitra]
+    );
+    if (!mitra.length) return gagal(reply, 'Mitra tidak ditemukan', 404);
+    if (!mitra[0].aktif) return gagal(reply, 'Mitra sedang nonaktif', 409);
+
+    const res = await query(
+      `INSERT INTO t_portal_user (id_mitra_promo, email, password_hash, nama, role)
+       VALUES ($1,$2,$3,$4,$5)
+       RETURNING id_portal_user`,
+      [idMitra, email, hashPassword(password), nama, role]
+    );
+
+    return ok(reply, 'Akun portal dibuat. Serahkan email dan password ke mitra.', {
+      id_portal_user: res[0].id_portal_user,
+    });
+  } catch (err) {
+    if (err.code === '23505') return gagal(reply, 'Email sudah dipakai akun portal lain', 409);
+    console.error('[admin.createPortalUser]', err);
+    return gagal(reply, 'Terjadi kesalahan');
+  }
+}
+
+async function updatePortalUser(request, reply) {
+  const id = angka(request.params && request.params.id);
+  if (!id) return gagalValidasi(reply, 'ID akun portal tidak valid');
+
+  const b = request.body || {};
+  const nama = b.nama !== undefined ? (b.nama ? String(b.nama).trim() : null) : undefined;
+  const role = b.role !== undefined ? String(b.role).toLowerCase() : undefined;
+  const aktif = b.aktif !== undefined ? bool(b.aktif, true) : undefined;
+  const password = b.password !== undefined ? String(b.password) : undefined;
+
+  if (role !== undefined && !['operator', 'admin_mitra'].includes(role)) {
+    return gagalValidasi(reply, 'Role tidak valid');
+  }
+  if (password !== undefined && password !== '' && password.length < 8) {
+    return gagalValidasi(reply, 'Password minimal 8 karakter');
+  }
+
+  try {
+    const ada = await query(`SELECT 1 FROM t_portal_user WHERE id_portal_user = $1`, [id]);
+    if (!ada.length) return gagal(reply, 'Akun portal tidak ditemukan', 404);
+
+    // Hanya field yang dikirim yang diubah. Password hanya diubah bila diisi,
+    // supaya menyimpan form tanpa mengganti password tidak mengosongkannya.
+    if (nama !== undefined) {
+      await query(`UPDATE t_portal_user SET nama=$1, updated_at=now() WHERE id_portal_user=$2`, [nama, id]);
+    }
+    if (role !== undefined) {
+      await query(`UPDATE t_portal_user SET role=$1, updated_at=now() WHERE id_portal_user=$2`, [role, id]);
+    }
+    if (aktif !== undefined) {
+      await query(`UPDATE t_portal_user SET aktif=$1, updated_at=now() WHERE id_portal_user=$2`, [aktif, id]);
+    }
+    if (password !== undefined && password !== '') {
+      await query(
+        `UPDATE t_portal_user SET password_hash=$1, updated_at=now() WHERE id_portal_user=$2`,
+        [hashPassword(password), id]
+      );
+    }
+
+    return ok(reply, 'Akun portal diperbarui', { id_portal_user: id });
+  } catch (err) {
+    console.error('[admin.updatePortalUser]', err);
+    return gagal(reply, 'Terjadi kesalahan');
+  }
+}
+
+async function deletePortalUser(request, reply) {
+  const id = angka(request.params && request.params.id);
+  if (!id) return gagalValidasi(reply, 'ID akun portal tidak valid');
+
+  try {
+    // Hard delete aman: t_promo_peserta.id_portal_user ON DELETE SET NULL,
+    // jadi riwayat peserta tidak ikut hilang.
+    const res = await db.run(`DELETE FROM t_portal_user WHERE id_portal_user = $1`, [id]);
+    if (res.rowCount === 0) return gagal(reply, 'Akun portal tidak ditemukan', 404);
+    return ok(reply, 'Akun portal dihapus', { id_portal_user: id });
+  } catch (err) {
+    console.error('[admin.deletePortalUser]', err);
+    return gagal(reply, 'Terjadi kesalahan');
+  }
+}
+
 module.exports = {
   listMitra, createMitra, updateMitra, deleteMitra,
   resetApiKey, deleteApiKey,
@@ -899,4 +1042,5 @@ module.exports = {
   listIklan, createIklan, updateIklan, deleteIklan,
   listPeserta, createPeserta, deletePeserta,
   listPemakaian, listEksposur,
+  listPortalUser, createPortalUser, updatePortalUser, deletePortalUser,
 };
