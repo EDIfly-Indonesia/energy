@@ -10,6 +10,7 @@ const bmsdoku = require("../configs/bmsdoku");
 const messaging = require("../configs/firebaseConfig");
 const crypto = require("crypto");
 const { tokenUserId } = require('../services/permission');
+const walletProvision = require('../services/wallet-provision');
 
 // In-memory OTP store for the forgot-password flow (kirimotp -> resetpassword).
 const otpStore = new Map(); // email -> { otp, expires }
@@ -374,11 +375,17 @@ module.exports = {
 
       const id_user_baru = results[0].id_user;
 
-      var responwallet = await bmsdoku.registeragent(nama, email, no_hp);
-      console.log(`responwallet ${responwallet}`);
-      if (responwallet.status == "0000" || responwallet.status == "0010") {
-        id_wallet = responwallet.data.WALLETID;
-        await pool.query(`update t_user_mobile set id_wallet=$1 where email=$2`, [id_wallet, email]).catch(e => console.error(e));
+      // Wallet user = DOKU WaaS SUB ACCOUNT (SAC-...), dibuat lewat
+      // POST /sac-merchant/v1/accounts. Ini menggantikan registeragent BMS lama
+      // yang mengembalikan WALLETID format berbeda (bukan sub account).
+      //
+      // Kegagalan TIDAK menggagalkan registrasi: pelanggan tetap terdaftar dan
+      // bisa topup, hanya belum bisa bayar pakai saldo. Statusnya dicatat di
+      // wallet_status/wallet_error agar admin bisa mengulang lewat
+      // `node scripts/doku-wallet.cjs create-user <id_user>`.
+      const hasilWallet = await walletProvision.createUserWallet(id_user_baru);
+      if (!hasilWallet.ok) {
+        console.error(`[registrasi] wallet user #${id_user_baru} gagal: ${hasilWallet.alasan}`);
       }
 
       let sqlpostgre = `INSERT INTO berita( id_user,no_trans,jenis_berita,judul,isi) values($1,$2,$3,$4,$5);`;

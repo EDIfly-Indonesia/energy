@@ -14,6 +14,7 @@ const upload = require('../controllers/controller-upload');
 const report = require('../controllers/controller-report');
 const pelangganCtl = require('../controllers/controller-admin-pelanggan');
 const beritaCtl = require('../controllers/controller-admin-berita');
+const walletCtl = require('../controllers/controller-admin-wallet');
 const promoCtl = require('../controllers/controller-admin-promo');
 const mediaCtl = require('../controllers/controller-admin-media');
 const biayaCtl = require('../controllers/controller-admin-biaya');
@@ -190,6 +191,16 @@ module.exports = async function adminRoutes(fastify) {
       promo.post('/admin/promo/:id/peserta', { schema: { tags: ['promo'], summary: 'Tambah peserta promo', params: s.idParams('ID promo'), security: BEARER } }, promoCtl.createPeserta);
       promo.delete('/admin/promo-peserta/:id', { schema: { tags: ['promo'], summary: 'Hapus peserta promo', params: s.idParams('ID peserta'), security: BEARER } }, promoCtl.deletePeserta);
       promo.get('/admin/promo/:id/pemakaian', { schema: { tags: ['promo'], summary: 'Ledger pemakaian promo', params: s.idParams('ID promo'), security: BEARER } }, promoCtl.listPemakaian);
+    });
+
+    // --- wallet DOKU (sub account): [1,2] ---
+    protectedRoutes.register(async function (walletAdmin) {
+      walletAdmin.addHook('preHandler', requireRole(1, 2));
+      walletAdmin.get('/admin/wallet', { schema: { tags: ['admin'], summary: 'Status wallet pusat + pelanggan', security: BEARER } }, walletCtl.status);
+      walletAdmin.post('/admin/wallet/central', { schema: { tags: ['admin'], summary: 'Buat wallet pusat (sub account DOKU)', security: BEARER } }, walletCtl.createCentral);
+      walletAdmin.put('/admin/wallet/central', { schema: { tags: ['admin'], summary: 'Simpan ID wallet pusat manual', security: BEARER } }, walletCtl.setCentral);
+      walletAdmin.post('/admin/wallet/backfill', { schema: { tags: ['admin'], summary: 'Buat wallet untuk pelanggan yang belum punya', security: BEARER } }, walletCtl.backfill);
+      walletAdmin.post('/admin/pelanggan/:id/wallet', { schema: { tags: ['admin'], summary: 'Buat/ulangi wallet satu pelanggan', params: s.idParams('ID pelanggan (id_user)'), security: BEARER } }, walletCtl.createForUser);
     });
 
     // --- laporan / report: [1,2,4] ---

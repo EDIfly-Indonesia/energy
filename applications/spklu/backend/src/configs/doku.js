@@ -6,9 +6,46 @@ const shortid = require('shortid');
 var request = require('request');
 var client_id=process.env.IS_PROD==0? process.env.CLIENT_ID_DOKU_DEV : process.env.CLIENT_ID_DOKU;
 var secret_id=process.env.IS_PROD==0? process.env.SECRET_KEY_DOKU_DEV : process.env.SECRET_KEY_DOKU;
-const id_wallet_admin=process.env.IS_PROD==0? "SAC-2661-1741083847148" : "SAC-2661-1741083847148";
+
+// Wallet pusat TIDAK boleh di-hardcode. Nilainya dibaca dari t_setting
+// (admin_wallet / admin_wallet_sandbox) lewat global.gwallet_admin yang diisi
+// configs/global.js. Sebelumnya nilai test "SAC-2661-1741083847148" ditulis
+// langsung di sini, sehingga mengubah setting di dashboard tidak berpengaruh:
+// transfer dan refund tetap memakai wallet test itu.
+function idWalletAdmin() {
+  const isProd = String(process.env.IS_PROD) === '1';
+  const nilai = isProd ? global.gwallet_admin : global.gwallet_admin_sandbox;
+  const id = String(nilai ?? '').trim();
+  if (!/^SAC-/.test(id)) {
+    throw new Error(
+      'Wallet pusat belum diatur. Isi t_setting.' +
+        (isProd ? 'admin_wallet' : 'admin_wallet_sandbox') +
+        ' dengan ID sub account DOKU (lihat: node scripts/doku-wallet.cjs status)'
+    );
+  }
+  return id;
+}
 var url_callback=process.env.IS_PROD==0? process.env.URL_CALLBACK_DEV : process.env.URL_CALLBACK_PROD;
 var url_api=process.env.IS_PROD==0? process.env.URL_DOKU_DEV : process.env.URL_DOKU;
+
+/**
+ * Lampirkan wallet tujuan ke body topup (Accept Payment, Sub Account V1).
+ *
+ * `additional_info.account.id` menentukan wallet mana yang menerima dana.
+ * Tanpa ini uang topup masuk ke akun utama merchant dan wallet pelanggan tetap
+ * nol, sehingga pembayaran pakai saldo (transfer wallet user -> wallet pusat)
+ * selalu gagal karena saldo tidak pernah terisi.
+ *
+ * Hanya ditambahkan bila idwallet benar-benar ID sub account (`SAC-...`), supaya
+ * body tidak menjadi tidak valid ketika pemanggil tidak mengirim wallet.
+ */
+function lampirkanWallet(body, idwallet) {
+  const id = String(idwallet ?? '').trim();
+  if (!/^SAC-/.test(id)) return body;
+  if (!body.additional_info) body.additional_info = {};
+  body.additional_info.account = { id };
+  return body;
+}
 // Generate Digest
 async function generateDigest(jsonBody) {
     let jsonStringHash256 = crypto.createHash('sha256').update(jsonBody,"utf-8").digest();
@@ -19,8 +56,6 @@ async function generateDigest(jsonBody) {
  
 async function generateSignature( requestId, requestTimestamp, requestTarget, digest) {
     // Prepare Signature Component
-    console.log("----- Component Signature -----")
-	 console.log(gwallet_admin)
     let componentSignature = "Client-Id:" + client_id;
     componentSignature += "\n";
     componentSignature += "Request-Id:" + requestId;
@@ -116,10 +151,13 @@ async function createtoken(data,target){
  
  
  
- async function createovo(no_trans,total,nama,email,no_hp,target){
+ async function createovo(no_trans,total,nama,email,no_hp,target,idwallet=""){
 	 let j=`${total}${client_id}${no_trans}${no_hp}${secret_id}`;
 	 let check_sum= crypto.createHash('sha256').update(j).digest('hex');;
-	 let jsonBody=  JSON.stringify({
+	 // Pemanggil (controller-auth) sudah mengirim id_wallet sebagai argumen ke-7,
+	 // tetapi fungsi ini dulu hanya punya 6 parameter sehingga nilainya dibuang
+	 // dan topup OVO tidak pernah masuk ke wallet pelanggan.
+	 let body = {
 			"client": {
 				"id": client_id
 			},
@@ -133,7 +171,9 @@ async function createtoken(data,target){
 			"security":{
 				"check_sum": check_sum
 			}
-		});
+		};
+	 body = lampirkanWallet(body, idwallet);
+	 let jsonBody=  JSON.stringify(body);
 	let hasil=await	createsignature(jsonBody,no_trans,target);
 	
 	return hasil;
@@ -175,6 +215,7 @@ async function createtoken(data,target){
     }
 		};
 	
+	 body = lampirkanWallet(body, idwallet); // wallet tujuan topup
 	 let jsonBody=  JSON.stringify(body);
 		
 	let hasil=await	createsignature(jsonBody,no_trans,target);
@@ -203,6 +244,7 @@ async function createtoken(data,target){
 		// if(idwallet!="") {
 			// body.additional_info.account={ "id": idwallet};
 		// }
+	 body = lampirkanWallet(body, idwallet); // wallet tujuan topup
 	 let jsonBody=  JSON.stringify(body);
 		 
 	let hasil=await	createsignature(jsonBody,no_trans,target);
@@ -219,7 +261,7 @@ async function createtoken(data,target){
 				"transfer":
 					{
 						"origin" : asal,
-						"destination" : id_wallet_admin,
+						"destination" : idWalletAdmin(),
 						"amount" : total,
 						"invoice_number" : no_trans
 					}
@@ -270,7 +312,7 @@ async function createtoken(data,target){
 			
 				"transfer":
 					{
-						"origin" : id_wallet_admin, 
+						"origin" : idWalletAdmin(), 
 						"destination" : tujuan,
 						"amount" : total,
 						"invoice_number" : no_trans
@@ -309,6 +351,7 @@ async function createtoken(data,target){
 			
 		};
 		
+	 body = lampirkanWallet(body, idwallet); // wallet tujuan topup
 	 let jsonBody=  JSON.stringify(body);
 		 
 	let hasil=await	createsignature(jsonBody,no_trans,target);
@@ -366,6 +409,7 @@ async function createtoken(data,target){
 				
 			};
 	
+	 body = lampirkanWallet(body, idwallet); // wallet tujuan topup
 	 let jsonBody=  JSON.stringify(body);
 	  console.log(jsonBody);
 	let hasil=await	createsignature(jsonBody,no_trans,target);
@@ -450,6 +494,9 @@ async function createtoken(data,target){
 									  // }	;
 						 
 					 // }
+	// createva memakai variabel `jb`, bukan `body` — tiga cabang (id_carabayar
+	// 4/8/lainnya) semuanya harus mendapat wallet tujuan.
+	jb = lampirkanWallet(jb, idwallet);
 	let jsonBody=  JSON.stringify(jb);
 					
 		let hasil=await	createsignature(jsonBody,no_trans,target);

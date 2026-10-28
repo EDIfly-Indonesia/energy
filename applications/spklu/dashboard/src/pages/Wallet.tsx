@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { get, put } from '../api';
 import { Check } from 'lucide-react';
 import DataTable from '../components/DataTable';
+import DokuWalletPanel from '../components/DokuWalletPanel';
 
 interface RefundRow {
   id: number;
@@ -29,10 +30,12 @@ interface TopupRow {
 }
 
 export default function Wallet() {
-  const [tab, setTab] = useState<'refund' | 'topup'>('refund');
+  const [tab, setTab] = useState<'refund' | 'topup' | 'doku'>('refund');
   const [refunds, setRefunds] = useState<RefundRow[]>([]);
   const [topups, setTopups] = useState<TopupRow[]>([]);
   const [msg, setMsg] = useState('');
+  // Endpoint wallet DOKU hanya untuk role 1 dan 2.
+  const bolehKelolaWallet = ['1', '2'].includes(localStorage.getItem('spklu_type') ?? '');
 
   async function loadRefund() {
     const r = await get<RefundRow[]>('/admin/refund');
@@ -66,9 +69,16 @@ export default function Wallet() {
         <button className={tab === 'topup' ? '' : 'ghost'} onClick={() => setTab('topup')}>
           Topup
         </button>
+        {bolehKelolaWallet && (
+          <button className={tab === 'doku' ? '' : 'ghost'} onClick={() => setTab('doku')}>
+            Wallet DOKU
+          </button>
+        )}
       </div>
 
-      {tab === 'refund' ? (
+      {tab === 'doku' ? (
+        <DokuWalletPanel />
+      ) : tab === 'refund' ? (
         <DataTable
           data={refunds}
           rowKey={(r) => r.id}
