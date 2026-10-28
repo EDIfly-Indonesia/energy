@@ -215,6 +215,89 @@ curl -X POST 'https://energy.edifly-si.com/spklu/api/chargebox/nearest' \
 Catatan: `limit` WAJIB integer (lihat bagian berikut). JSON harus valid —
 **tanpa** koma sebelum `}`.
 
+### Memantau event OCPP saat commissioning
+
+```bash
+cd /opt/energy/applications/spklu
+node scripts/ocpp-monitor.cjs                 # ikuti log dari sekarang
+node scripts/ocpp-monitor.cjs --replay 30     # 30 event terakhir lalu keluar
+node scripts/ocpp-monitor.cjs --verbose       # ikut tampilkan ping/pong + last_ping
+node scripts/ocpp-monitor.cjs --no-db         # tanpa query database
+node scripts/ocpp-monitor.cjs --log <path>    # file log lain
+```
+
+Murni membaca log pm2 (`backend/logs/pm2-out-17.log`), **tidak mengubah kode
+server**. Menampilkan CONNECT, DISCONNECT, DITOLAK, BOOT (vendor/model/fw),
+HEARTBEAT (tiap 10 saja, agar tidak mengubur event lain), AUTHORIZE, STATUS,
+START, STOP, METERVALUES (measurand yang dipakai server), dan method lain.
+Baris job refund / chargingState / `pong` disembunyikan.
+
+Di awal ia mencetak **kondisi koneksi saat ini** per chargebox. Ini penting
+karena putus koneksi tidak selalu menghasilkan baris `disconnect` di log: kalau
+socket mati mendadak, handler close tidak jalan dan log terlihat normal
+padahal mesin sudah lama hilang.
+
+**Temuan saat uji:** mesin EZ81920 berhenti mengirim heartbeat pada 16:13:20
+dan tidak pernah kembali; `last_ping` basi 31 menit, tidak ada koneksi
+ESTABLISHED ke 8080, dan **tidak ada baris disconnect**. Jadi jangan mengandalkan
+log untuk tahu mesin offline; pakai umur `last_ping`.
+
+**`DB_HOST_POSTGRE` di `.env` menyesatkan.** Nilainya `energy-postgres` (nama
+container Docker) yang **tidak resolve dari host**. Backend tetap jalan karena
+pm2 menyuntik `DB_HOST_POSTGRE=127.0.0.1` ke environment-nya dan dotenv tidak
+menimpa env yang sudah ada. Konsekuensinya: menjalankan `node server.js`
+langsung dari shell akan gagal konek DB. Skrip di host harus memakai
+`127.0.0.1` (monitor sudah menanganinya, dengan fallback).
+
+### Commissioning mesin charger (OCPP) — konfigurasi mesin
+
+Jalur produksi memakai **wss lewat nginx**, bukan port 8080 (8080 tertutup dari
+internet; sudah diuji: `http://103.23.198.126:8080` tidak bisa connect).
+
+Terapkan sekali:
+
+```bash
+sudo bash /opt/energy/applications/spklu/nginx/apply-ocpp-wss.sh
+```
+
+Skrip menyisipkan `location /ocpp/` (Upgrade + Connection + timeout 3600s +
+`proxy_buffering off`) ke site `energy`, mem-backup config lama, lalu `nginx -t`
+dan reload. Idempoten. Snippet sumbernya: `nginx/ocpp-wss.conf`.
+
+**Setelan di mesin charger:**
+
+| Setelan | Nilai | Catatan |
+|---|---|---|
+| URL / endpoint | `wss://energy.edifly-si.com/ocpp/<chargebox_id>` | contoh `.../ocpp/EZ81920` |
+| Subprotocol | **`ocpp1.6`** | `ocpp1.6j` dan `ocpp2.0.x` DITOLAK (sudah diuji) |
+| Identity | = `chargebox_id` di `t_chargebox` | tidak terdaftar → handshake 404 |
+| Heartbeat | 60 detik | server mengirim `ChangeConfiguration HeartbeatInterval=60` |
+| MeterValues | `Energy.Active.Import.Register` (Wh), `Temperature`, `Current.Import` (L1), `Voltage` (L1-N), `SoC` | tanpa Energy register, kWh tidak tercatat |
+
+Backend mengambil **segmen path terakhir** sebagai identity, jadi prefix apa pun
+boleh: `/EZ81920`, `/ocpp/EZ81920`, `/spklu/ocpp/EZ81920` semuanya tersambung.
+
+**Alur yang sudah diverifikasi dengan klien OCPP sungguhan:** handshake →
+BootNotification (Accepted, interval 300) → Heartbeat (mengisi
+`t_chargebox.last_ping`) → StatusNotification (menulis `t_connector_status` +
+`konektor`). Identity asing ditolak 404.
+
+**Prasyarat data:** chargebox harus ada di `t_chargebox`, dan konektornya harus
+punya `connector_type` + `electric_power` (trigger `trg_tchargebox_ai` hanya
+membuat baris konektor #1 dengan kedua kolom NULL).
+
+**Jam server harus benar.** BootNotification mengirim `currentTime`, jadi mesin
+meniru jam server. Saat sesi ini dimulai jam VM meleset 32 detik dan NTP mati
+(`chrony.service` gagal dengan `Result=resources`, `ExecMainStartTimestamp`
+kosong). Perbaiki dengan:
+
+```bash
+sudo bash /opt/energy/applications/spklu/scripts/enable-ntp.sh
+```
+
+Egress UDP 123 sudah diuji terbuka ke `ntp.ubuntu.com`, `pool.ntp.org`, dan
+`time.google.com`, jadi sinkronisasi bisa jalan begitu daemonnya hidup.
+
 ### Artikel berita (`t_berita`) — CRUD admin
 
 Dashboard punya menu **Berita** (`/spklu/berita`, role 1 & 2). Endpoint:
