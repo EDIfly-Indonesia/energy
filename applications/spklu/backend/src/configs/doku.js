@@ -519,9 +519,31 @@ async function createtoken(data,target){
 		// Do async job
 		request.post(options, function(err, resp, body) {
 		  if (err) {
-			reject(JSON.parse(err));
-		  } else {
-			resolve(JSON.parse(body));
+			// `err` adalah objek Error, bukan string JSON. JSON.parse(err)
+			// justru melempar SyntaxError baru yang menutupi penyebab aslinya.
+			return reject(err instanceof Error ? err : new Error(String(err)));
+		  }
+
+		  const status = resp && resp.statusCode;
+		  const text = body == null ? '' : String(body).trim();
+
+		  // Gateway bisa membalas HTML (halaman error, WAF, atau 5xx) walau
+		  // permintaan "berhasil" di level HTTP. Tanpa pemeriksaan ini
+		  // JSON.parse melempar "Unexpected token '<'", dan pemanggil tidak
+		  // tahu apa yang sebenarnya terjadi.
+		  if (!text.startsWith('{') && !text.startsWith('[')) {
+			const cuplikan = text.slice(0, 200).replace(/\s+/g, ' ');
+			return reject(new Error(
+			  `Respons DOKU bukan JSON (status ${status}): ${cuplikan || '(kosong)'}`
+			));
+		  }
+
+		  try {
+			resolve(JSON.parse(text));
+		  } catch (e) {
+			reject(new Error(
+			  `JSON DOKU tidak valid (status ${status}): ${text.slice(0, 200)}`
+			));
 		  }
 		})
 	  })

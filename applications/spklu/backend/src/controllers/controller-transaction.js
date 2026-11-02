@@ -197,6 +197,20 @@ module.exports = {
       );
       no_trans = results[0].id;
 
+      // PENTING: no_trans disimpan SEKARANG, sebelum pembayaran dibuat.
+      //
+      // Sebelumnya no_trans hanya ditulis oleh UPDATE di akhir fungsi, yaitu
+      // SETELAH pemanggilan DOKU. Bila DOKU gagal (mis. membalas HTML sehingga
+      // JSON.parse melempar), UPDATE itu terlewat: baris t_transaction tetap
+      // ada tetapi no_trans NULL, sehingga transaksi tidak punya ID dan klien
+      // menampilkan ID kosong. Kasus nyata: t_transaction id=44 di produksi.
+      // Tanpa BEGIN/COMMIT, baris yang sudah ter-INSERT juga tidak di-rollback,
+      // jadi menyimpan lebih awal adalah satu-satunya cara ID tetap utuh.
+      await query(
+        `UPDATE t_transaction SET no_trans=$1::text WHERE id=$2`,
+        [no_trans, no_trans]
+      );
+
       if (req.body.reservasi == 1) {
         const dateReservasi = new Date(req.body.date_reservasi);
         const dateExpired = new Date(dateReservasi.getTime() + (15 * 60 * 1000));
@@ -218,92 +232,116 @@ module.exports = {
         ).catch(e => console.error('Gagal reservasi:', e));
       }
 
+      let dokuGagal = null;
+
       if (grandTotal > 0) {
         let no_trans_doku = `${no_trans}-${id_user}-trans`;
         // doku
-        switch (id_carabayar) {
-          case 0:
-            target = "/checkout/v2/payment";
-            hasil = null;
-            break;
-          case 1:
-            target = "/checkout/v2/payment";
-            hasil = await doku.createcheckout(no_trans_doku, grandTotal, target);
-            break;
-          case 2:
-            target = "/sac-merchant/v1/transfers";
-            hasil = null;
-            break;
-          case 3:
-            target = "/bca-virtual-account/v2/payment-code";
-            hasil = await doku.createva(no_trans_doku, grandTotal, req.body.nama, req.body.email, target, id_carabayar);
-            break;
-          case 4:
-            target = "/bni-virtual-account/v2/payment-code";
-            hasil = await doku.createva(no_trans_doku, grandTotal, req.body.nama, req.body.email, target, id_carabayar);
-            break;
-          case 5:
-            target = "/mandiri-virtual-account/v2/payment-code";
-            hasil = await doku.createva(no_trans_doku, grandTotal, req.body.nama, req.body.email, target, id_carabayar);
-            break;
-          case 6:
-            target = "/doku-virtual-account/v2/payment-code";
-            hasil = await doku.createva(no_trans_doku, grandTotal, req.body.nama, req.body.email, target, id_carabayar);
-            break;
-          case 7:
-            target = "/bsm-virtual-account/v2/payment-code";
-            hasil = await doku.createva(no_trans_doku, grandTotal, req.body.nama, req.body.email, target, id_carabayar);
-            break;
-          case 8:
-            target = "/permata-virtual-account/v2/payment-code";
-            hasil = await doku.createva(no_trans_doku, grandTotal, req.body.nama, req.body.email, target, id_carabayar);
-            break;
-          case 9:
-            target = "/cimb-virtual-account/v2/payment-code";
-            hasil = await doku.createva(no_trans_doku, grandTotal, req.body.nama, req.body.email, target, id_carabayar);
-            break;
-          case 10:
-            target = "/ovo-emoney/v1/payment";
-            hasil = await doku.createovo(no_trans_doku, grandTotal, req.body.nama, req.body.email, req.body.no_hp, target);
-            break;
-          case 11:
-            target = "/shopeepay-emoney/v2/order";
-            hasil = await doku.createshopepay(no_trans_doku, grandTotal, target);
-            break;
-          case 12:
-            target = "/dokuwallet-emoney/v1/payment";
-            hasil = await doku.createdokuwallet(no_trans_doku, grandTotal, target);
-            break;
-          case 13:
-            target = "/linkaja-emoney/v2/ServiceRequestPayment";
-            hasil = await doku.createlink(no_trans_doku, grandTotal, req.body.nama, req.body.email, req.body.no_hp, target);
-            break;
+        //
+        // Kegagalan membuat tagihan di gateway TIDAK boleh membatalkan order.
+        // no_trans sudah tersimpan di atas, jadi transaksi tetap bisa dilacak
+        // dan pengguna bisa mencoba metode pembayaran lain. Sebelumnya error
+        // gateway (mis. DOKU membalas HTML) lolos ke catch luar dan seluruh
+        // permintaan dibalas "Terjadi kesalahan".
+        try {
+          switch (id_carabayar) {
+            case 0:
+              target = "/checkout/v2/payment";
+              hasil = null;
+              break;
+            case 1:
+              target = "/checkout/v2/payment";
+              hasil = await doku.createcheckout(no_trans_doku, grandTotal, target);
+              break;
+            case 2:
+              target = "/sac-merchant/v1/transfers";
+              hasil = null;
+              break;
+            case 3:
+              target = "/bca-virtual-account/v2/payment-code";
+              hasil = await doku.createva(no_trans_doku, grandTotal, req.body.nama, req.body.email, target, id_carabayar);
+              break;
+            case 4:
+              target = "/bni-virtual-account/v2/payment-code";
+              hasil = await doku.createva(no_trans_doku, grandTotal, req.body.nama, req.body.email, target, id_carabayar);
+              break;
+            case 5:
+              target = "/mandiri-virtual-account/v2/payment-code";
+              hasil = await doku.createva(no_trans_doku, grandTotal, req.body.nama, req.body.email, target, id_carabayar);
+              break;
+            case 6:
+              target = "/doku-virtual-account/v2/payment-code";
+              hasil = await doku.createva(no_trans_doku, grandTotal, req.body.nama, req.body.email, target, id_carabayar);
+              break;
+            case 7:
+              target = "/bsm-virtual-account/v2/payment-code";
+              hasil = await doku.createva(no_trans_doku, grandTotal, req.body.nama, req.body.email, target, id_carabayar);
+              break;
+            case 8:
+              target = "/permata-virtual-account/v2/payment-code";
+              hasil = await doku.createva(no_trans_doku, grandTotal, req.body.nama, req.body.email, target, id_carabayar);
+              break;
+            case 9:
+              target = "/cimb-virtual-account/v2/payment-code";
+              hasil = await doku.createva(no_trans_doku, grandTotal, req.body.nama, req.body.email, target, id_carabayar);
+              break;
+            case 10:
+              target = "/ovo-emoney/v1/payment";
+              hasil = await doku.createovo(no_trans_doku, grandTotal, req.body.nama, req.body.email, req.body.no_hp, target);
+              break;
+            case 11:
+              target = "/shopeepay-emoney/v2/order";
+              hasil = await doku.createshopepay(no_trans_doku, grandTotal, target);
+              break;
+            case 12:
+              target = "/dokuwallet-emoney/v1/payment";
+              hasil = await doku.createdokuwallet(no_trans_doku, grandTotal, target);
+              break;
+            case 13:
+              target = "/linkaja-emoney/v2/ServiceRequestPayment";
+              hasil = await doku.createlink(no_trans_doku, grandTotal, req.body.nama, req.body.email, req.body.no_hp, target);
+              break;
+          }
+        } catch (e) {
+          dokuGagal = e;
+          hasil = null;
+          console.error('[simpanorder.doku]', e.message);
         }
         // akhir doku
 
-        var isiberita = `Menunggu Pembayaran Charging ${no_trans}`;
-        let sqlpostgre = `INSERT INTO berita( id_user,no_trans,jenis_berita,judul,isi) values($1,$2,$3,$4,$5);`;
-        await poolpostgre.query(sqlpostgre, [id_user, no_trans, 'ordercharging', 'Menunggu Pembayaran Charging', isiberita]).catch(e => console.error(e));
+        // Berita "menunggu pembayaran" dan timer expired hanya relevan bila
+        // tagihan benar-benar terbentuk.
+        if (!dokuGagal) {
+          var isiberita = `Menunggu Pembayaran Charging ${no_trans}`;
+          let sqlpostgre = `INSERT INTO berita( id_user,no_trans,jenis_berita,judul,isi) values($1,$2,$3,$4,$5);`;
+          await poolpostgre.query(sqlpostgre, [id_user, no_trans, 'ordercharging', 'Menunggu Pembayaran Charging', isiberita]).catch(e => console.error(e));
 
-        // cek expired pembayaran
-        setTimeout(async () => {
-          try {
-            let sqlexp = `update t_transaction set status_transaksi=(case when tgl_expired < now() and status_bayar='unpaid' then 'expired' else status_transaksi end)
+          // cek expired pembayaran
+          setTimeout(async () => {
+            try {
+              let sqlexp = `update t_transaction set status_transaksi=(case when tgl_expired < now() and status_bayar='unpaid' then 'expired' else status_transaksi end)
               where no_trans=$1;`;
-            const result = await pool.query(sqlexp, [no_trans]);
-            if (result.rowCount === 1) {
-              var isiberita2 = `Pembayaran transaksi ${no_trans} expired!`;
-              let sqlpostgre2 = `INSERT INTO berita( id_user,no_trans,jenis_berita,judul,isi) values($1,$2,$3,$4,$5);`;
-              await poolpostgre.query(sqlpostgre2, [id_user, no_trans, 'pembayarangagal', 'Pembayaran Gagal', isiberita2]).catch(e => console.error(e));
+              const result = await pool.query(sqlexp, [no_trans]);
+              if (result.rowCount === 1) {
+                var isiberita2 = `Pembayaran transaksi ${no_trans} expired!`;
+                let sqlpostgre2 = `INSERT INTO berita( id_user,no_trans,jenis_berita,judul,isi) values($1,$2,$3,$4,$5);`;
+                await poolpostgre.query(sqlpostgre2, [id_user, no_trans, 'pembayarangagal', 'Pembayaran Gagal', isiberita2]).catch(e => console.error(e));
+              }
+            } catch (e) {
+              console.error(e);
             }
-          } catch (e) {
-            console.error(e);
-          }
-        }, ((wkt_exp * 1000 * 60) + 5000));
+          }, ((wkt_exp * 1000 * 60) + 5000));
+        }
       }
 
-      let sqlupdate = `update t_transaction set no_trans=$1, pembayaran=$2::jsonb where id=$3;`;
-      await pool.query(sqlupdate, [no_trans, JSON.stringify(hasil) ?? null, no_trans]).catch(e => console.error(e));
+      // no_trans sudah disimpan sebelum pembayaran dibuat, jadi di sini hanya
+      // payload pembayaran yang diperbarui.
+      if (hasil != null) {
+        await pool.query(
+          `UPDATE t_transaction SET pembayaran=$1::jsonb WHERE id=$2`,
+          [JSON.stringify(hasil), no_trans]
+        ).catch(e => console.error('[simpanorder.pembayaran]', e.message));
+      }
 
       state.gnotrans_id[no_transbike] = no_trans;
 
@@ -311,16 +349,23 @@ module.exports = {
       dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
       res.send({
         success: true,
-        message: promoDipakai
-          ? "Berhasil"
-          : (kodePromo && quote.promo_alasan
-              ? `Order dibuat tanpa promo: ${pesanAlasanPromo(quote.promo_alasan)}`
-              : "Berhasil"),
+        message: dokuGagal
+          // Order dan ID transaksi sudah tersimpan; hanya tagihan pembayaran
+          // yang gagal dibuat, jadi pengguna bisa memilih metode lain.
+          ? "Order tersimpan, gagal membuat tagihan pembayaran. Silakan coba metode pembayaran lain."
+          : (promoDipakai
+              ? "Berhasil"
+              : (kodePromo && quote.promo_alasan
+                  ? `Order dibuat tanpa promo: ${pesanAlasanPromo(quote.promo_alasan)}`
+                  : "Berhasil")),
         created: dt,
         grandtotal: grandTotal,
         id_carabayar: id_carabayar,
         no_trans: no_trans,
         data: hasil,
+        // True bila gateway pembayaran gagal membuat tagihan. Klien memakai
+        // ini untuk membedakan "order gagal" dari "tagihan gagal dibuat".
+        pembayaran_gagal: Boolean(dokuGagal),
         // Status promo (API-PROMO.md §10.2). Klien memakai ini untuk memberi
         // tahu pengguna bila promo berubah antara quote dan order.
         promo_dipakai: promoDipakai,
