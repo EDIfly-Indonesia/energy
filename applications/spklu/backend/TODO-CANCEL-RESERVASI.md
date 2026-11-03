@@ -1,6 +1,8 @@
 # TODO — Pembatalan Reservasi SPKLU (Backend)
 
-Status: **belum dikerjakan**. Dokumen ini rencana kerja, bukan catatan selesai.
+Status: **SUDAH DITERAPKAN 3 Nov 2026** (commit 92d6324). Endpoint
+`POST /transaction/cancelreservasi` aktif; lihat §8 untuk hasil uji.
+Dokumen ini kini catatan keputusan + status.
 Sumber keputusan: instruksi produk 2026-11-02. Sisi mobile sudah selesai dan
 sudah memanggil endpoint yang diminta di sini — kontrak di §Kontrak API **jangan
 diubah** tanpa menyelaraskan aplikasi.
@@ -340,3 +342,34 @@ sementara konektor tetap terblokir.
   peringatan tambahan bila `status_bayar='paid'`.
 - **Job expire + `setTimeout` berjalan bersamaan** dapat menulis status berbeda
   pada transaksi yang sama. Hapus salah satunya (Fase 3).
+
+
+---
+
+## 8. Status implementasi (3 Nov 2026)
+
+Endpoint aktif di produksi. Uji end-to-end lewat HTTP nyata: **15/15 lulus**.
+
+| Kasus | Hasil |
+|---|---|
+| Batal status `order`, konektor bersih | success, transaksi+reservasi jadi `cancel`, konektor `Available` |
+| Batal status `order`, konektor masih direservasi lain | transaksi batal, **konektor TIDAK dilepas** (guard bekerja) |
+| Batal ulang | ditolak: "Reservasi ini sudah dibatalkan" |
+| Batal `ready` (belum mulai) | success |
+| Batal `charging` | ditolak: status tidak dapat dibatalkan |
+| Batal `ready` yang sudah mengalirkan energi | ditolak: "Pengisian sudah dimulai..." |
+| Transaksi milik user lain | ditolak: "Transaksi tidak ditemukan" |
+| `no_trans` kosong | ditolak |
+| Notifikasi in-app | baris `berita` jenis `reservasibatal` dibuat |
+
+Catatan: penolakan memakai **HTTP 200 + success:false**, sesuai kontrak yang
+sudah dipakai mobile. HTTP 404 hanya untuk route yang tidak ada.
+
+### Risiko yang perlu keputusan produk
+
+Status `ready` berarti tagihan **sudah terbayar dari saldo**. Membatalkan
+tanpa refund membuat saldo pengguna hangus. Pada alur DOKU lama hal ini tidak
+terasa karena reservasi tidak menagih; setelah migrasi ke saldo, `ready`
+berarti uang sudah keluar. Bila ini tidak diinginkan, pembatalan `ready`
+harus memanggil `refund()` (atau `saldoService.kredit` dengan
+`jenis=kredit_refund`) — saat ini belum, sesuai keputusan "tanpa refund".
