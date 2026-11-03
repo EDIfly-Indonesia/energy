@@ -101,9 +101,18 @@ async function createCentralWallet({ name, email, isProd, force = false }) {
 // ------------------------------------------------------------------ user
 
 /**
- * Buat wallet untuk satu pelanggan dan simpan ke t_user_mobile.
- * Tidak pernah melempar error: kegagalan dicatat sebagai wallet_status='failed'
- * supaya registrasi tetap berhasil dan admin bisa mencoba ulang.
+ * Buat wallet_id LOKAL untuk pelanggan.
+ *
+ * Keputusan produk 2026-11-03: `id_wallet` adalah identitas penampung saldo
+ * milik kita, BUKAN sub-account DOKU WaaS. Saldo tetap di `t_saldo_user`.
+ *
+ * Karena itu pembuatan wallet TIDAK lagi memanggil DOKU:
+ *   - registrasi tidak pernah gagal gara-gara WaaS bermasalah,
+ *   - tidak ada panggilan jaringan saat signup,
+ *   - `wallet_status` menjadi 'local' (bukan pending/active/failed).
+ *
+ * Format: WLT-<6 digit id_user>  (mis. WLT-000008). Deterministik dan unik
+ * karena id_user unik; dijalankan ulang menghasilkan nilai sama.
  */
 async function createUserWallet(idUser, { force = false } = {}) {
   const rows = await query(
@@ -114,38 +123,31 @@ async function createUserWallet(idUser, { force = false } = {}) {
   if (rows.length === 0) return { ok: false, id_user: idUser, alasan: 'pelanggan tidak ditemukan' };
   const u = rows[0];
 
+  // Sudah punya wallet lokal dan tidak dipaksa: tidak perlu apa-apa.
   if (u.id_wallet && !force) {
     return { ok: true, id_user: idUser, id_wallet: u.id_wallet, dilewati: true };
   }
-  if (!u.email) {
-    await tandaiGagal(idUser, 'email kosong');
-    return { ok: false, id_user: idUser, alasan: 'email kosong' };
-  }
+
+  const idWalletLokal = `WLT-${String(idUser).padStart(6, '0')}`;
 
   await run(
-    `UPDATE t_user_mobile SET wallet_status='pending', wallet_error=NULL,
-            wallet_updated_at=now() WHERE id_user=$1`,
-    [idUser]
+    `UPDATE t_user_mobile
+        SET id_wallet = $1, wallet_status = 'local', wallet_error = NULL,
+            wallet_updated_at = now()
+      WHERE id_user = $2`,
+    [idWalletLokal, idUser]
   );
 
-  try {
-    const { client } = klien();
-    // Nama wajib; pakai nama pelanggan, atau email bila nama kosong.
-    const acc = await client.createSubAccount({
-      email: u.email,
-      name: (u.nama && String(u.nama).trim()) || u.email,
-    });
-    await run(
-      `UPDATE t_user_mobile
-          SET id_wallet=$1, wallet_status=$2, wallet_error=NULL, wallet_updated_at=now()
-        WHERE id_user=$3`,
-      [acc.id, acc.status === 'ACTIVE' ? 'active' : 'pending', idUser]
-    );
-    return { ok: true, id_user: idUser, id_wallet: acc.id, status: acc.status };
-  } catch (e) {
-    await tandaiGagal(idUser, e.message);
-    return { ok: false, id_user: idUser, alasan: e.message };
-  }
+  // Pastikan baris saldo ada. Trigger tusermobile_ai biasanya sudah membuatnya;
+  // ini jaring pengaman untuk data lama.
+  await run(
+    `INSERT INTO t_saldo_user (id_user, saldo, updated_at)
+     SELECT $1, 0, now()
+      WHERE NOT EXISTS (SELECT 1 FROM t_saldo_user WHERE id_user = $1)`,
+    [idUser]
+  ).catch((e) => console.error('[wallet-provision.saldo]', e.message));
+
+  return { ok: true, id_user: idUser, id_wallet: idWalletLokal, status: 'local' };
 }
 
 async function tandaiGagal(idUser, pesan) {

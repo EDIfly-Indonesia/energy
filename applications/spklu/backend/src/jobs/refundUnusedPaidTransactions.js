@@ -1,6 +1,6 @@
-const bmsdoku = require('../configs/bmsdoku');
 const db = require('../services/database.service');
 const { query, run } = db;
+const saldoService = require('../services/saldo.service');
 
 async function runJob() {
   try {
@@ -26,12 +26,27 @@ async function runJob() {
       };
 
       console.log(data);
-      let hasiltopup = await bmsdoku.topup(data.id_wallet, data.jml_refund.toFixed(2), data.no_trans_doku);
-      hasiltopup = { status: '0000' };
 
-      console.log(hasiltopup);
+      // Refund dikreditkan ke SALDO LOKAL, bukan wallet DOKU (keputusan
+      // 2026-11-03). Sebelumnya hasil `bmsdoku.topup` ditimpa dengan
+      // `{ status: '0000' }` sehingga refund SELALU dianggap berhasil walau
+      // gateway gagal. Sekarang hasil nyata yang dipakai.
+      let hasilRefund;
+      try {
+        hasilRefund = await saldoService.kredit({
+          idUser: row.id_user,
+          noTrans: row.no_trans,
+          jenis: saldoService.JENIS.KREDIT_REFUND,
+          jumlah: Number(row.grand_total),
+          keterangan: `refund otomatis ${row.no_trans}`,
+        });
+      } catch (e) {
+        hasilRefund = { ok: false, alasan: e.message };
+      }
 
-      if (hasiltopup.status === '0000') {
+      console.log(`[refundUnused] no_trans=${row.no_trans} ->`, JSON.stringify(hasilRefund));
+
+      if (hasilRefund.ok) {
         console.log('Refund berhasil');
         await run(
           `INSERT INTO t_refund( id_user,no_trans,jml_transaksi,jumlah,status,tgl_buat,tgl_done) values($1,$2,$3,$4,$5,$6,$7)`,

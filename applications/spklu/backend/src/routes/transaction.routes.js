@@ -15,4 +15,5 @@ module.exports = async function transactionRoutes(fastify) {
   fastify.post('/transaction/startcharging', { schema: { tags: ['transaction'], summary: 'Mulai charging (OCPP)', body: s.trxStartcharging, security: BEARER }, preHandler: mobileTokenAuth }, toFastify(transaction.startcharging));
   fastify.post('/transaction/stopcharging', { schema: { tags: ['transaction'], summary: 'Hentikan charging (OCPP)', body: s.trxStopcharging, security: BEARER }, preHandler: mobileTokenAuth }, toFastify(transaction.stopcharging));
   fastify.post('/transaction/paywithsaldo', { schema: { tags: ['transaction'], summary: 'Bayar order dengan saldo', body: s.trxPaywithsaldo, security: BEARER }, preHandler: mobileTokenAuth }, toFastify(transaction.paywithsaldo));
+  fastify.post('/transaction/cancelreservasi', { schema: { tags: ['transaction'], summary: 'Batalkan reservasi/order (tanpa refund)', body: s.trxCancelReservasi, security: BEARER }, preHandler: mobileTokenAuth }, toFastify(transaction.cancelreservasi));
 };

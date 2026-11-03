@@ -114,6 +114,9 @@ module.exports = {
     no_trans: str('No transaksi'),
     jumlah: num('Jumlah bayar'),
   }),
+  trxCancelReservasi: body({
+    no_trans: str('No transaksi yang dibatalkan'),
+  }),
 
   // ===== wallet =====
   walletRegister: body({ email: str('Email'), nama: str('Nama'), no_hp: str('No HP') }),

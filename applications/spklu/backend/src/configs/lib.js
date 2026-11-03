@@ -204,7 +204,7 @@ function kirimnotif(registrationToken,transnumber,judul,isi,jenis){
  
  async function waselesai(no,transnumber){
 	  let sql=`select t.no_trans,jml_kwh_order,jml_kwh_terpakai,start_timestamp,stop_timestamp from t_transaction t join 
-	  t_transaction_detail d on t.no_trans=d.no_trans where t.no_trans=$1	 ;`
+	  t_transaction_detail d on t.no_trans::text=d.no_trans where t.no_trans=$1	 ;`
 	  try {
 	    const results = await query(sql, [transnumber]);
 	    if (results.length === 0) return;

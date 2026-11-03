@@ -3,6 +3,7 @@ const { pool, poolpostgre, query } = db;
 const lib = require("../configs/lib");
 const bmsdoku = require("../configs/bmsdoku");
 const promoService = require('../services/promo.service');
+const saldoService = require('../services/saldo.service');
 
 module.exports = {
   // Callback pembayaran VA / e-wallet
@@ -46,7 +47,25 @@ module.exports = {
         var jenisberita = "topup";
         var judulberita = "Pembayaran Topup Sukses";
 
-        await bmsdoku.topup(idwallet, jumlahtopup, no_trans);
+        // Top up dikreditkan ke SALDO LOKAL (t_saldo_user), bukan ke wallet
+        // DOKU. Keputusan 2026-11-03: DOKU hanya dipakai sebagai kanal bayar
+        // saat top up; saldo yang dipakai membeli energi ada di database kita.
+        // Idempoten per (no_trans, kredit_topup) sehingga callback yang
+        // dikirim ulang DOKU tidak menggandakan saldo.
+        try {
+          const hasilKredit = await saldoService.kredit({
+            idUser: Number(id_user),
+            noTrans: no_trans,
+            jenis: saldoService.JENIS.KREDIT_TOPUP,
+            jumlah: Number(jumlahtopup),
+            keterangan: `top up ${no_trans}`,
+          });
+          console.log(`[callback.va] topup no_trans=${no_trans} ->`, JSON.stringify(hasilKredit));
+        } catch (e) {
+          // Jangan gagalkan callback: uang sudah diterima. Cukup catat agar
+          // bisa direkonsiliasi manual.
+          console.error('[callback.va.kredit]', e.message);
+        }
       }
 
       let sqlpostgre = `INSERT INTO berita( id_user,no_trans,jenis_berita,judul,isi) values($1,$2,$3,$4,$5);`;

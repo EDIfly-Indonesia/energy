@@ -169,7 +169,7 @@ async function loadFromDatabase() {
             t.tipe_charging, t.jml_kwh_order, t.jml_durasi_order,
             td.start_timestamp, td.start_value, u.token AS fcm_token
         FROM t_transaction t
-        JOIN t_transaction_detail td ON t.no_trans = td.no_trans
+        JOIN t_transaction_detail td ON t.no_trans::text = td.no_trans
         JOIN t_user_mobile u ON t.id_user = u.id_user
         WHERE t.status_transaksi = 'charging'
     `;

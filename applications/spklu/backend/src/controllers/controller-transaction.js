@@ -8,6 +8,8 @@ const state = require('../services/chargingState').state;
 const { tokenUserId } = require('../services/permission');
 const { kwhToWh } = require('../utils/units');
 const promoService = require('../services/promo.service');
+const saldoService = require('../services/saldo.service');
+const noTransUtil = require('../utils/no-trans');
 
 // Pesan singkat untuk promo_alasan dari fn_promo_validasi, dipakai pada
 // respons simpanorder ketika promo berubah antara quote dan order.
@@ -99,8 +101,14 @@ module.exports = {
     }
 
     let wkt_exp = 15; //in minutes
-    let no_trans = Date.parse(new Date().toISOString());
-    let id_carabayar = req.body.id_carabayar;
+    // no_trans 16 digit (YYYYMMDDHHMM+NNNN UTC), sekaligus nomor invoice.
+    // Diambil atomik lewat UPSERT pada t_no_trans_counter. Nomor diambil
+    // SEBELUM insert supaya tetap tersimpan walau pembayaran gagal.
+    let no_trans = await noTransUtil.ambilNomorBerikutnya(pool);
+    // Pembelian energi HANYA lewat saldo (id_carabayar = 2). Nilai dari klien
+    // diabaikan agar tidak ada jalur yang masih membuat tagihan DOKU untuk
+    // pembelian energi (DOKU hanya untuk top up).
+    let id_carabayar = 2;
     let jenis_kendaraan = req.body.jenis_kendaraan ?? "car";
     console.log(`jenis_kendaraan ${jenis_kendaraan}`);
     let now = new Date();
@@ -195,20 +203,11 @@ module.exports = {
           data.kelas_layanan, data.pbjt_persen, data.dpp,
         ]
       );
-      no_trans = results[0].id;
-
-      // PENTING: no_trans disimpan SEKARANG, sebelum pembayaran dibuat.
-      //
-      // Sebelumnya no_trans hanya ditulis oleh UPDATE di akhir fungsi, yaitu
-      // SETELAH pemanggilan DOKU. Bila DOKU gagal (mis. membalas HTML sehingga
-      // JSON.parse melempar), UPDATE itu terlewat: baris t_transaction tetap
-      // ada tetapi no_trans NULL, sehingga transaksi tidak punya ID dan klien
-      // menampilkan ID kosong. Kasus nyata: t_transaction id=44 di produksi.
-      // Tanpa BEGIN/COMMIT, baris yang sudah ter-INSERT juga tidak di-rollback,
-      // jadi menyimpan lebih awal adalah satu-satunya cara ID tetap utuh.
+      // no_trans sudah dibuat sebelum INSERT (lihat atas), jadi cukup
+      // ditempelkan ke baris yang baru dibuat.
       await query(
-        `UPDATE t_transaction SET no_trans=$1::text WHERE id=$2`,
-        [no_trans, no_trans]
+        `UPDATE t_transaction SET no_trans=$1::bigint WHERE id=$2`,
+        [no_trans, results[0].id]
       );
 
       if (req.body.reservasi == 1) {
@@ -234,7 +233,11 @@ module.exports = {
 
       let dokuGagal = null;
 
-      if (grandTotal > 0) {
+      // Pembayaran energi hanya lewat SALDO (id_carabayar = 2). Tagihan DOKU
+      // TIDAK dibuat lagi untuk pembelian energi — DOKU hanya dipakai top up.
+      // Tanpa pengecualian ini, order saldo tetap memanggil gateway dan gagal
+      // saat WaaS bermasalah.
+      if (grandTotal > 0 && Number(id_carabayar) !== 2) {
         let no_trans_doku = `${no_trans}-${id_user}-trans`;
         // doku
         //
@@ -473,11 +476,16 @@ module.exports = {
     if (id_user === null) return res.send({ success: false, message: 'invalid0', data: null });
     let id_wallet = req.body.id_wallet;
 
-    // SEC-03: id_wallet harus milik id_user di token (konsisten dengan wallet.* / getsaldo),
-    // bukan dipakai apa adanya dari body.
+    // SEC-03: kepemilikan ditentukan oleh id_user di token, BUKAN id_wallet dari
+    // body. Klien boleh mengirim id_wallet kosong (sesi lama yang tersimpan
+    // sebelum wallet lokal dibuat); bila dikirim, nilainya wajib cocok.
     try {
       const own = await query('SELECT id_wallet FROM t_user_mobile WHERE id_user=$1', [id_user]);
-      if (!(own.length === 1 && !!own[0].id_wallet && own[0].id_wallet === id_wallet)) {
+      if (own.length !== 1 || !own[0].id_wallet) {
+        return res.send({ success: false, message: 'invalid0', data: null });
+      }
+      const walletBody = String(id_wallet ?? '').trim();
+      if (walletBody !== '' && walletBody !== own[0].id_wallet) {
         return res.send({ success: false, message: 'invalid0', data: null });
       }
     } catch (e) {
@@ -485,60 +493,256 @@ module.exports = {
       return res.send({ success: false, message: 'Terjadi kesalahan', data: null });
     }
 
-    let no_trans = req.body.no_trans;
-    let jumlah = req.body.jumlah;
+    const no_trans = req.body.no_trans;
+    const tgl_trans = new Date();
 
-    let sukses = false;
-    let pesan = "Pembayaran gagal";
-    let tgl_trans = new Date();
-    var pin = "1111";
-
-    try {
-      var tokenidresponse = await bmsdoku.tokenize(id_wallet, pin, no_trans);
-      console.log(`tokenidresponse ${JSON.stringify(tokenidresponse)}`);
-      const tokenid = tokenidresponse.data.TOKENID;
-      console.log(`no_trans ${no_trans}`);
-
-      hasil = await bmsdoku.paywithsaldo(id_wallet, jumlah, tokenid);
-
-      if (hasil.status == "0000") {
-        console.log("berhasil");
-        let sql = `update t_transaction set status_transaksi='ready',status_bayar='paid',tgl_bayar=$1 where no_trans=$2 AND id_user=$3;`;
-        await pool.query(sql, [tgl_trans, no_trans, id_user]).catch(e => console.error(e));
-        let sqlreservasi = `update t_reservasi set status='ready' where transaction_id=$1;`;
-        await pool.query(sqlreservasi, [no_trans]).catch(e => console.error(e));
-
-        // Klaim budget promo setelah pembayaran sukses (TODO-PROMO.md §0.B).
-        // Idempoten dan tidak boleh menggagalkan pembayaran.
-        try {
-          const hasilPromo = await promoService.klaimPromo(no_trans);
-          if (hasilPromo.status !== 'tidak_ada_promo') {
-            console.log(`[paywithsaldo] promo no_trans=${no_trans} -> ${hasilPromo.status}${hasilPromo.alasan ? '/' + hasilPromo.alasan : ''}`);
-          }
-        } catch (e) {
-          console.error('[paywithsaldo.promo]', e.message);
-        }
-
-        var isiberita = `Pembayaran transaksi ${no_trans} telah berhasil!`;
-        var jenisberita = "pembayaran";
-        var judulberita = "Pembayaran Sukses";
-
-        let sqlpostgre = `INSERT INTO berita( id_user,no_trans,jenis_berita,judul,isi) values($1,$2,$3,$4,$5);`;
-        await poolpostgre.query(sqlpostgre, [id_user, no_trans, jenisberita, judulberita, isiberita]).catch(e => console.error(e));
-        sukses = true;
-        pesan = "Pembayaran sukses";
-      }
-    } catch (e) {
-      console.error('[paywithsaldo]', e);
+    if (!no_trans) {
+      return res.send({ success: false, message: 'no_trans wajib diisi', data: null, no_trans: null });
     }
 
-    res.send({
-      success: sukses,
-      message: pesan,
-      no_trans: no_trans,
-      created: tgl_trans,
-      id_carabayar: 2
-    });
+    // Pembayaran energi TIDAK lagi lewat DOKU (keputusan 2026-11-03: WaaS rusak).
+    // Saldo didebit lokal dari t_saldo_user, dan tagihan diambil dari server
+    // (grand_total), bukan dari angka kiriman klien.
+    try {
+      const trx = await query(
+        `SELECT grand_total FROM t_transaction WHERE no_trans = $1::bigint AND id_user = $2`,
+        [no_trans, id_user]
+      );
+      if (trx.length === 0) {
+        return res.send({ success: false, message: 'Transaksi tidak ditemukan', data: null, no_trans });
+      }
+
+      const jumlah = Number(trx[0].grand_total);
+      const hasil = await saldoService.debitPembelian({
+        idUser: id_user,
+        noTrans: no_trans,
+        jumlah,
+      });
+
+      if (!hasil.ok) {
+        const pesan =
+          hasil.alasan === 'SALDO_KURANG'
+            ? `Saldo tidak mencukupi. Saldo Anda Rp ${Number(hasil.saldo_awal || 0).toLocaleString('id-ID')}, tagihan Rp ${jumlah.toLocaleString('id-ID')}. Silakan top up.`
+            : hasil.alasan === 'SUDAH_DIBAYAR'
+              ? 'Transaksi ini sudah dibayar'
+              : 'Transaksi tidak dapat dibayar';
+        return res.send({
+          success: false,
+          message: pesan,
+          alasan: hasil.alasan,
+          saldo: hasil.saldo_awal ?? null,
+          tagihan: jumlah,
+          data: null,
+          no_trans,
+        });
+      }
+
+      // Klaim budget promo setelah pembayaran sukses (TODO-PROMO.md §0.B).
+      // Idempoten dan tidak boleh menggagalkan pembayaran.
+      try {
+        const hasilPromo = await promoService.klaimPromo(no_trans);
+        if (hasilPromo.status !== 'tidak_ada_promo') {
+          console.log(`[paywithsaldo] promo no_trans=${no_trans} -> ${hasilPromo.status}${hasilPromo.alasan ? '/' + hasilPromo.alasan : ''}`);
+        }
+      } catch (e) {
+        console.error('[paywithsaldo.promo]', e.message);
+      }
+
+      var isiberita = `Pembayaran transaksi ${no_trans} telah berhasil!`;
+      var jenisberita = "pembayaran";
+      var judulberita = "Pembayaran Sukses";
+
+      let sqlpostgre = `INSERT INTO berita( id_user,no_trans,jenis_berita,judul,isi) values($1,$2,$3,$4,$5);`;
+      await poolpostgre.query(sqlpostgre, [id_user, String(no_trans), jenisberita, judulberita, isiberita]).catch(e => console.error(e));
+
+      return res.send({
+        success: true,
+        message: "Pembayaran sukses",
+        no_trans: no_trans,
+        created: tgl_trans,
+        saldo_akhir: hasil.saldo_akhir,
+        id_carabayar: 2
+      });
+    } catch (e) {
+      console.error('[paywithsaldo]', e);
+      return res.send({ success: false, message: 'Terjadi kesalahan', data: null, no_trans });
+    }
+  },
+
+  /**
+   * Batalkan reservasi / order yang belum berjalan.
+   *
+   * Keputusan produk 2026-11-03:
+   *   - status yang boleh dibatalkan: `order` dan `ready`
+   *   - TIDAK ada refund
+   *   - konektor dilepas agar bisa dipesan pengguna lain
+   *
+   * Kontrak klien (JANGAN diubah tanpa menyelaraskan mobile):
+   *   request  { no_trans }
+   *   sukses   { success: true,  message }
+   *   ditolak  { success: false, message }   <-- HTTP tetap 200
+   *   HTTP 404 hanya untuk route yang tidak ada.
+   *
+   * Semua langkah DB berjalan dalam satu transaksi: status transaksi,
+   * status reservasi, pelepasan konektor, dan notifikasi.
+   */
+  async cancelreservasi(req, res) {
+    const id_user = tokenUserId(req);
+    if (id_user === null) return res.send({ success: false, message: 'invalid0', data: null });
+
+    const no_trans = String(req.body.no_trans ?? '').trim();
+    if (!no_trans) {
+      return res.send({ success: false, message: 'no_trans wajib diisi', data: null });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Kunci baris transaksi + verifikasi kepemilikan lewat id_user token.
+      const trx = await client.query(
+        `SELECT id, no_trans, id_user, status_transaksi, status_bayar,
+                chargebox_id, connector_id, jml_kwh_terpakai
+           FROM t_transaction
+          WHERE no_trans = $1::bigint AND id_user = $2
+          FOR UPDATE`,
+        [no_trans, id_user]
+      );
+
+      if (trx.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.send({
+          success: false,
+          message: 'Transaksi tidak ditemukan',
+          data: null,
+        });
+      }
+
+      const t = trx.rows[0];
+
+      // Idempoten: sudah dibatalkan / tidak bisa dibatalkan lagi.
+      if (t.status_transaksi === 'cancel') {
+        await client.query('ROLLBACK');
+        return res.send({
+          success: false,
+          message: 'Reservasi ini sudah dibatalkan',
+          data: null,
+        });
+      }
+
+      if (!['order', 'ready'].includes(t.status_transaksi)) {
+        await client.query('ROLLBACK');
+        return res.send({
+          success: false,
+          message: `Transaksi berstatus ${t.status_transaksi} tidak dapat dibatalkan`,
+          data: null,
+        });
+      }
+
+      // Jangan izinkan pembatalan sesi yang sudah mengalirkan energi: itu
+      // domain stopcharging + refund, bukan pembatalan reservasi.
+      const detail = await client.query(
+        `SELECT start_timestamp FROM t_transaction_detail
+          WHERE no_trans = $1::text LIMIT 1`,
+        [no_trans]
+      );
+      const sudahMulai =
+        (detail.rows.length > 0 && detail.rows[0].start_timestamp != null) ||
+        Number(t.jml_kwh_terpakai || 0) > 0;
+
+      if (sudahMulai) {
+        await client.query('ROLLBACK');
+        return res.send({
+          success: false,
+          message:
+            'Pengisian sudah dimulai. Gunakan Hentikan Pengisian, bukan pembatalan reservasi.',
+          data: null,
+        });
+      }
+
+      // 1) batalkan transaksi
+      await client.query(
+        `UPDATE t_transaction
+            SET status_transaksi = 'cancel', update_at = now()
+          WHERE id = $1`,
+        [t.id]
+      );
+
+      // 2) batalkan reservasinya (bila ada)
+      const reservasi = await client.query(
+        `UPDATE t_reservasi
+            SET status = 'cancel'
+          WHERE transaction_id = $1::bigint
+          RETURNING id`,
+        [no_trans]
+      );
+
+      // 3) lepas konektor HANYA bila tidak ada reservasi aktif lain dan
+      //    tidak ada sesi charging yang masih berjalan di konektor itu.
+      //    Tanpa cek ulang, dua pengguna bisa memesan konektor yang sama.
+      const reservasiLain = await client.query(
+        `SELECT 1 FROM t_reservasi
+          WHERE chargebox_id = $1 AND connector_id = $2
+            AND status IN ('unpaid', 'ready')
+            AND now() < date_expired
+          LIMIT 1`,
+        [t.chargebox_id, t.connector_id]
+      );
+      const chargingLain = await client.query(
+        `SELECT 1 FROM t_transaction
+          WHERE chargebox_id = $1 AND connector_id = $2
+            AND status_transaksi = 'charging'
+          LIMIT 1`,
+        [t.chargebox_id, t.connector_id]
+      );
+
+      let konektorDilepas = false;
+      if (reservasiLain.rows.length === 0 && chargingLain.rows.length === 0) {
+        await client.query(
+          `UPDATE t_connector_detail
+              SET status = 'Available', last_update = now(), updated_by = 'cancelreservasi'
+            WHERE chargebox_id = $1 AND connector_id = $2`,
+          [t.chargebox_id, t.connector_id]
+        );
+        konektorDilepas = true;
+      }
+
+      // 4) notifikasi in-app
+      const isi = `Reservasi transaksi ${no_trans} telah dibatalkan.`;
+      await client.query(
+        `INSERT INTO berita (id_user, no_trans, jenis_berita, judul, isi)
+         VALUES ($1, $2, 'reservasibatal', 'Reservasi dibatalkan', $3)`,
+        [id_user, no_trans, isi]
+      );
+
+      await client.query('COMMIT');
+
+      // 5) lepas klaim budget promo (di luar transaksi: idempoten, tidak boleh
+      //    menggagalkan pembatalan).
+      try {
+        const hasilLepas = await promoService.lepasPromo(no_trans);
+        if (hasilLepas.status !== 'tidak_ada_klaim') {
+          console.log(`[cancelreservasi] promo no_trans=${no_trans} -> ${hasilLepas.status}`);
+        }
+      } catch (e) {
+        console.error('[cancelreservasi.promo]', e.message);
+      }
+
+      return res.send({
+        success: true,
+        message: 'Reservasi berhasil dibatalkan',
+        no_trans: no_trans,
+        konektor_dilepas: konektorDilepas,
+        reservasi_dibatalkan: reservasi.rowCount,
+        data: null,
+      });
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      console.error('[cancelreservasi]', err);
+      return res.send({ success: false, message: 'Terjadi kesalahan', data: null });
+    } finally {
+      client.release();
+    }
   },
 
   async refund(notrans, update_ttl_refund = false) {
@@ -588,10 +792,18 @@ module.exports = {
 
       if (jml_harga == 0) return;
 
-      hasiltopup = await bmsdoku.topup(id_wallet, jml_refund.toFixed(2), no_trans_doku);
-      console.log(hasiltopup);
-      if (hasiltopup.status == "0000") {
-        console.log("refund berhasil");
+      // Refund TIDAK lewat DOKU (keputusan 2026-11-03). Dana dikembalikan ke
+      // saldo lokal t_saldo_user; trigger t_histori_saldo yang menambah saldo.
+      const hasilRefund = await saldoService.kredit({
+        idUser: id_user,
+        noTrans: notrans,
+        jenis: saldoService.JENIS.KREDIT_REFUND,
+        jumlah: Number(jml_refund),
+        keterangan: `refund transaksi ${notrans}`,
+      });
+      console.log(`[refund] no_trans=${notrans} ->`, JSON.stringify(hasilRefund));
+      if (hasilRefund.ok) {
+        console.log("refund berhasil (saldo lokal)");
         let sqlrefund = `INSERT INTO t_refund( id_user,no_trans,jml_transaksi,jumlah,status,tgl_buat,tgl_done) values($1,$2,$3,$4,$5,$6,$7);`;
         await pool.query(sqlrefund, [id_user, notrans, jml_harga, jml_refund, 'done', new Date(), new Date()]).catch(e => console.error(e));
 
