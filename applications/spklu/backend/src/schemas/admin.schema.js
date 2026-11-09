@@ -280,6 +280,28 @@ const reportQuery = {
   },
 };
 
+// --- payment gateway (provider config) ---
+// Secret TIDAK ada di sini (tetap di .env). Hanya config non-rahasia.
+const paymentGatewayBody = {
+  type: 'object',
+  additionalProperties: true,
+  required: ['kode_provider', 'nama_provider'],
+  properties: {
+    kode_provider: str('Kode provider (huruf kecil, angka, garis bawah; mis. doku/xendit)'),
+    nama_provider: str('Nama tampilan (mis. DOKU / XENDIT)'),
+    client_id: str('Client/merchant ID (semi-publik; bukan secret)'),
+    is_prod: { type: 'boolean', description: 'Produksi (true) / sandbox (false)' },
+    aktif: { type: 'boolean', description: 'Aktif sebagai gateway saat ini' },
+    url_api: str('Base URL API (mis. https://api.doku.com)'),
+    url_callback: str('URL callback pembayaran'),
+    endpoint_va: str('Path endpoint VA (mis. /doku-virtual-account/v2/payment-code)'),
+    endpoint_qris: str('Path endpoint QRIS'),
+    expired_menit: int('Masa berlaku pembayaran dalam menit (default 20)'),
+    metadata: { description: 'Flag/parameter khusus provider (JSON, opsional)' },
+    keterangan: str('Catatan'),
+  },
+};
+
 module.exports = {
   loginBody,
   idParams,
@@ -298,4 +320,5 @@ module.exports = {
   mediaQuery,
   mediaDeleteBody,
   reportQuery,
+  paymentGatewayBody,
 };

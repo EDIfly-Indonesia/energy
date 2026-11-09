@@ -418,15 +418,19 @@ async function createtoken(data,target){
 		
  }
  async function createva(no_trans,total,nama,email,target,id_carabayar,idwallet=""){
+	 // Semua channel VA kini pakai DOKU VA "Multiple Banks" (satu endpoint),
+	 // sehingga body-nya SELALU format generik. Cabang khusus lama (id 4 = BNI
+	 // dengan merchant_unique_reference, id 8 = Permata reusable) dinonaktifkan
+	 // karena endpoint per-bank tersebut tidak lagi dipakai.
 	 let jb={};
-	 if(id_carabayar==4){
+	 if(false){ // legacy: id_carabayar==4 (BNI)
 		jb= {
 					  "order": {
 						"invoice_number":  no_trans,
 						"amount": total
 					  },
 					  "virtual_account_info": {
-						"expired_time": 10,
+						"expired_time": 20,
 						"reusable_status": false,
 						"info1": "Biaya charging",
 						"info2": "",
@@ -442,14 +446,14 @@ async function createtoken(data,target){
 					}
 					
 	 }
-	 else if(id_carabayar==8){
+	 else if(false){ // legacy: id_carabayar==8 (Permata reusable)
 		 jb={
 				"order": {
 					"invoice_number": no_trans,
 					"amount": total
 				},
 				"virtual_account_info": {
-					"expired_time": 10,
+					"expired_time": 20,
 					"reusable_status": true,
 					"ref_info" : [
 						{
@@ -472,7 +476,7 @@ async function createtoken(data,target){
 						"amount": total
 					  },
 					  "virtual_account_info": {
-						"expired_time": 10,
+						"expired_time": 20,
 						"reusable_status": false,
 						"info1": "Biaya charging",
 						"info2": "",

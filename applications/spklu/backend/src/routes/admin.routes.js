@@ -18,6 +18,7 @@ const walletCtl = require('../controllers/controller-admin-wallet');
 const promoCtl = require('../controllers/controller-admin-promo');
 const mediaCtl = require('../controllers/controller-admin-media');
 const biayaCtl = require('../controllers/controller-admin-biaya');
+const pgCtl = require('../controllers/controller-admin-payment-gateway');
 const adminAuth = require('../middleware/admin-auth');
 const { requireRole } = require('../services/permission');
 const s = require('../schemas/admin.schema');
@@ -155,6 +156,17 @@ module.exports = async function adminRoutes(fastify) {
       berita.post('/admin/berita', { schema: { tags: ['admin'], summary: 'Tambah artikel berita', body: s.beritaBody, security: BEARER } }, beritaCtl.createBerita);
       berita.put('/admin/berita/:id', { schema: { tags: ['admin'], summary: 'Ubah artikel berita', body: s.beritaBody, params: s.idParams('ID berita (id_berita)'), security: BEARER } }, beritaCtl.updateBerita);
       berita.delete('/admin/berita/:id', { schema: { tags: ['admin'], summary: 'Hapus artikel berita', params: s.idParams('ID berita (id_berita)'), security: BEARER } }, beritaCtl.deleteBerita);
+    });
+
+    // --- payment gateway (provider config): [1,2] ---
+    protectedRoutes.register(async function (paygw) {
+      paygw.addHook('preHandler', requireRole(1, 2));
+      paygw.get('/admin/payment-gateway', { schema: { tags: ['admin'], summary: 'Daftar payment gateway', security: BEARER } }, pgCtl.list);
+      paygw.get('/admin/payment-gateway/:id', { schema: { tags: ['admin'], summary: 'Detail payment gateway', params: s.idParams('ID payment gateway'), security: BEARER } }, pgCtl.detail);
+      paygw.post('/admin/payment-gateway', { schema: { tags: ['admin'], summary: 'Tambah payment gateway', security: BEARER } }, pgCtl.create);
+      paygw.put('/admin/payment-gateway/:id', { schema: { tags: ['admin'], summary: 'Ubah payment gateway', params: s.idParams('ID payment gateway'), security: BEARER } }, pgCtl.update);
+      paygw.put('/admin/payment-gateway/:id/toggle', { schema: { tags: ['admin'], summary: 'Aktifkan gateway (nonaktifkan yang lain)', params: s.idParams('ID payment gateway'), security: BEARER } }, pgCtl.toggle);
+      paygw.delete('/admin/payment-gateway/:id', { schema: { tags: ['admin'], summary: 'Hapus payment gateway (hanya bila tidak aktif)', params: s.idParams('ID payment gateway'), security: BEARER } }, pgCtl.remove);
     });
 
     // --- promo mitra (ATPM / hotel / asuransi): [1,2] ---

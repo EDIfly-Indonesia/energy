@@ -26,6 +26,7 @@ const NAV: NavItem[] = [
   { to: '/promo-eksposur', label: 'Eksposur Promo', roles: [1, 2] },
   { to: '/media', label: 'Media', roles: [1, 2, 3, 6] },
   { to: '/setting', label: 'Setting', roles: [1, 2, 4] },
+  { to: '/payment-gateway', label: 'Payment Gateway', roles: [1, 2] },
 ];
 
 export default function Layout() {

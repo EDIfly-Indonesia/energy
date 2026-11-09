@@ -19,6 +19,7 @@ import PromoEksposur from './pages/PromoEksposur';
 import Biaya from './pages/Biaya';
 import Media from './pages/Media';
 import Setting from './pages/Setting';
+import PaymentGateway from './pages/PaymentGateway';
 import Laporan from './pages/Laporan';
 import PortalLogin from './portal/PortalLogin';
 import PortalLayout from './portal/PortalLayout';
@@ -70,6 +71,7 @@ export default function App() {
           <Route path="promo-eksposur" element={<PromoEksposur />} />
           <Route path="media" element={<Media />} />
           <Route path="setting" element={<Setting />} />
+          <Route path="payment-gateway" element={<PaymentGateway />} />
           <Route path="laporan" element={<Laporan />} />
         </Route>
       </Routes>

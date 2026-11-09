@@ -6,6 +6,7 @@ require('dotenv').config({ path: './.env' });
 var nodemailer = require('nodemailer');
 var bcrypt = require('bcryptjs');
 const doku = require("../configs/doku");
+const xendit = require("../services/xendit");
 const bmsdoku = require("../configs/bmsdoku");
 const messaging = require("../configs/firebaseConfig");
 const crypto = require("crypto");
@@ -15,6 +16,16 @@ const walletProvision = require('../services/wallet-provision');
 // In-memory OTP store for the forgot-password flow (kirimotp -> resetpassword).
 const otpStore = new Map(); // email -> { otp, expires }
 const OTP_TTL = 10 * 60 * 1000; // 10 menit
+
+/**
+ * Base URL publik untuk halaman QR pembayaran. Halaman di-backend dilayani di
+ * route GET /qris/:no_trans, dan nginx mem-proxy /spklu/api/* -> backend
+ * (prefix di-strip), jadi URL publiknya {URL_CALLBACK_PROD}spklu/api/qris/...
+ */
+function urlPublikQris() {
+  const base = (process.env.URL_CALLBACK_PROD || process.env.URL_CALLBACK_DEV || 'https://energy.edifly-si.com/').replace(/\/+$/, '');
+  return base + '/spklu/api/qris';
+}
 
 module.exports = {
 
@@ -234,37 +245,41 @@ module.exports = {
 
     switch (id_carabayar) {
       case 1:
-        target = "/checkout/v2/payment";
-        hasil = await doku.createcheckout(no_trans_doku, jumlah, target, id_wallet);
+        // QRIS (Xendit) — QR dinamis closed-amount. external_id memakai
+        // no_trans_doku (format no_trans-id_user-topup-idwallet) supaya
+        // callback qr.payment bisa memecahnya kembali.
+        hasil = await xendit.createQris({
+          referenceId: no_trans_doku,
+          amount: jumlah,
+        });
+        // Aplikasi mobile membuka `data.payment.url` di WebView (tidak merender
+        // QR dari string). Xendit mengembalikan qr_string, BUKAN URL. Kita
+        // bungkus jadi URL halaman QR publik + token = id QR Xendit, supaya
+        // kontrak respons yang diharapkan aplikasi tetap terpenuhi.
+        hasil = {
+          ...hasil,
+          payment: {
+            url: `${urlPublikQris()}/${no_trans}`,
+            token: hasil?.id || '',
+          },
+        };
         break;
       case 2:
         break;
+      // Semua channel Virtual Account diarahkan ke DOKU VA "Multiple Banks"
+      // (satu endpoint /doku-virtual-account/v2/payment-code). DOKU mengeluarkan
+      // SATU nomor VA yang bisa dibayar dari bank mana pun yang aktif (BNC, BJB,
+      // BRI, Permata, Sinarmas, BNI, BSI, BSS, BTN, CIMB, Danamon, Doku, Maybank)
+      // tanpa perjanjian per bank. Endpoint per-bank (bca/bni/mandiri/bsm/cimb)
+      // tidak terdaftar di akun ini, jadi tidak boleh dipakai.
       case 3:
-        target = "/bca-virtual-account/v2/payment-code";
-        hasil = await doku.createva(no_trans_doku, jumlah, nama, email, target, id_carabayar, id_wallet);
-        break;
       case 4:
-        target = "/bni-virtual-account/v2/payment-code";
-        hasil = await doku.createva(no_trans_doku, jumlah, nama, email, target, id_carabayar, id_wallet);
-        break;
       case 5:
-        target = "/mandiri-virtual-account/v2/payment-code";
-        hasil = await doku.createva(no_trans_doku, jumlah, nama, email, target, id_carabayar, id_wallet);
-        break;
       case 6:
-        target = "/doku-virtual-account/v2/payment-code";
-        hasil = await doku.createva(no_trans_doku, jumlah, nama, email, target, id_carabayar, id_wallet);
-        break;
       case 7:
-        target = "/bsm-virtual-account/v2/payment-code";
-        hasil = await doku.createva(no_trans_doku, jumlah, nama, email, target, id_carabayar, id_wallet);
-        break;
       case 8:
-        target = "/permata-virtual-account/v2/payment-code";
-        hasil = await doku.createva(no_trans_doku, jumlah, nama, email, target, id_carabayar, id_wallet);
-        break;
       case 9:
-        target = "/cimb-virtual-account/v2/payment-code";
+        target = "/doku-virtual-account/v2/payment-code";
         hasil = await doku.createva(no_trans_doku, jumlah, nama, email, target, id_carabayar, id_wallet);
         break;
       case 10:
