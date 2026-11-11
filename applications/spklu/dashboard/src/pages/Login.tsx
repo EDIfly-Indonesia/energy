@@ -108,12 +108,12 @@ export default function Login() {
           </div>
           <input
             value={captchaInput}
-            onChange={(e) => setCaptchaInput(e.target.value)}
+            onChange={(e) => setCaptchaInput(e.target.value.toUpperCase())}
             autoComplete="off"
             placeholder="Kode di atas"
           />
         </label>
-        <button type="submit" disabled={loading || !captcha}>
+        <button type="submit" disabled={loading || !captcha} className="w-full justify-center">
           {loading ? 'Memproses…' : 'Masuk'}
         </button>
         {message && <p className="msg">{message}</p>}
