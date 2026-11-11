@@ -1,12 +1,32 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Color scheme EZ Charge
+   Biru #083A59 · Hijau #84BB2B
+   ============================================================ */
+:root {
+  --brand-blue: #083a59;
+  --brand-blue-dark: #062f49;
+  --brand-blue-light: #0a4767;
+  --brand-green: #84bb2b;
+  --brand-green-dark: #5c8420;
+  --brand-green-soft: #eff6de;
+}
+
 @layer base {
   * {
     box-sizing: border-box;
   }
   body {
-    @apply m-0 bg-slate-900 text-slate-200;
+    @apply m-0;
     font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background-color: #0f172a; /* dark default */
+    color: #e2e8f0;
+  }
+  /* Light theme: flips surface + text. */
+  [data-theme='light'] body {
+    background-color: #f4f6fb;
+    color: #1f2937;
   }
 }
 
@@ -34,10 +54,12 @@
     @apply flex min-h-screen;
   }
   .sidebar {
-    @apply flex w-56 flex-col gap-4 bg-slate-800 p-4;
+    @apply flex flex-col gap-4 p-4;
+    width: 16rem;
+    background: linear-gradient(180deg, var(--brand-blue), var(--brand-blue-dark));
   }
   .sidebar h2 {
-    @apply m-0 text-lg;
+    @apply m-0 text-lg text-white;
   }
   .sidebar-brand {
     @apply flex items-center gap-2;
@@ -57,18 +79,69 @@
   .captcha-placeholder {
     @apply flex h-12 items-center justify-center rounded-lg border border-slate-700 px-3 text-xs text-slate-400;
   }
+
+  /* ---- Sidebar nav (berkelompok) ---- */
   .sidebar nav {
-    @apply flex flex-col gap-1;
+    @apply flex flex-col gap-1 overflow-y-auto;
   }
   .sidebar nav a {
-    @apply rounded-lg px-2.5 py-2 text-slate-300 no-underline;
+    @apply rounded-lg px-2.5 py-2 text-sm no-underline;
+    color: #d6e3ee;
+    transition: background-color 0.12s ease, color 0.12s ease;
   }
   .sidebar nav a:hover {
-    @apply bg-slate-700 text-white;
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+  }
+  .sidebar nav a.active {
+    background: var(--brand-green);
+    color: #ffffff;
+    font-weight: 600;
+  }
+  .nav-group-title {
+    padding: 0.6rem 0.5rem 0.25rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--brand-green);
+  }
+  .nav-group-items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-left: 0.4rem;
+  }
+  /* Sub-grup bersarang (Settings di dalam Administration) diberi indent +
+     garis pemisah halus. */
+  .nav-group .nav-group .nav-group-items {
+    margin-left: 0.6rem;
+    padding-left: 0.5rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.18);
+  }
+  .nav-group .nav-group .nav-group-title {
+    padding-left: 0.6rem;
+    color: #b7d98a;
+  }
+
+  .sidebar-footer {
+    @apply mt-auto flex flex-col gap-2;
+  }
+  .sidebar-user {
+    @apply text-xs;
+    color: #9fb4c4;
+  }
+  .theme-toggle {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+  }
+  .theme-toggle:hover {
+    background: rgba(255, 255, 255, 0.24);
   }
   .sidebar .logout {
     @apply mt-auto bg-red-700;
   }
+
   .content {
     @apply flex-1 p-6;
     /* Flex item harus boleh menyusut di bawah lebar kontennya. Tanpa ini,
@@ -78,6 +151,10 @@
   }
   .content h1 {
     @apply mt-0 text-2xl;
+    color: var(--brand-blue);
+  }
+  [data-theme='dark'] .content h1 {
+    color: #ffffff;
   }
 
   .grid {
@@ -127,6 +204,7 @@
   }
   .stat {
     @apply flex flex-col gap-1.5 rounded-lg bg-slate-800 p-4;
+    border-left: 4px solid var(--brand-green);
   }
   .stat span {
     @apply text-xs text-slate-400;
@@ -198,20 +276,44 @@
     @apply text-slate-200;
   }
 
+  /* Tombol utama memakai biru brand; aksen hijau untuk toggle/success. */
   button {
-    @apply inline-flex cursor-pointer items-center gap-1.5 rounded-lg border-0 bg-green-600 px-3 py-2.5 text-sm font-semibold text-white;
+    @apply inline-flex cursor-pointer items-center gap-1.5 rounded-lg border-0 px-3 py-2.5 text-sm font-semibold text-white;
+    background-color: var(--brand-blue);
+  }
+  button:hover {
+    background-color: var(--brand-blue-light);
   }
   button:disabled {
     @apply cursor-default opacity-60;
   }
   button.ghost {
-    @apply bg-slate-700;
+    background-color: #475569;
+  }
+  button.ghost:hover {
+    background-color: #5b6b78;
   }
   button.danger {
     @apply bg-red-700;
   }
   button.cancel {
     @apply bg-red-500;
+  }
+  /* Link yang tampil seperti tombol (mis. unduh QR stiker). */
+  a.button-link {
+    @apply inline-flex cursor-pointer items-center gap-1.5 rounded-lg border-0 px-3 py-2.5 text-sm font-semibold text-white no-underline;
+    background-color: var(--brand-blue);
+  }
+  a.button-link:hover {
+    background-color: var(--brand-blue-light);
+  }
+  /* QR stiker konektor — kotak putih agar tetap bisa di-scan setelah dicetak. */
+  .qr-sticker {
+    width: 280px;
+    height: 280px;
+    padding: 12px;
+    background: #fff;
+    border-radius: 12px;
   }
 
   input,
@@ -273,7 +375,7 @@
     background-color: #475569;
   }
   .switch.on {
-    background-color: #16a34a;
+    background-color: var(--brand-green);
   }
   .switch .knob {
     @apply absolute top-0.5 block h-5 w-5 rounded-full bg-white transition-transform;
@@ -287,7 +389,7 @@
     @apply text-xs font-semibold text-slate-400;
   }
   .switch-state.on {
-    @apply text-green-500;
+    color: var(--brand-green-dark);
   }
 
   /* Leaflet map picker */
@@ -410,6 +512,70 @@
   }
 }
 
+/* ============================================================
+   Light theme override — flips dark slate surfaces to light.
+   ============================================================ */
+[data-theme='light'] .card,
+[data-theme='light'] .panel,
+[data-theme='light'] .stat,
+[data-theme='light'] .modal {
+  background-color: #ffffff;
+  border: 1px solid #e5e9f0;
+  color: #1f2937;
+}
+[data-theme='light'] table {
+  background-color: #ffffff;
+}
+[data-theme='light'] th,
+[data-theme='light'] td {
+  border-color: #e5e9f0;
+  color: #1f2937;
+}
+[data-theme='light'] th {
+  background-color: #eef2f7;
+  color: #475569;
+}
+[data-theme='light'] input,
+[data-theme='light'] select,
+[data-theme='light'] textarea,
+[data-theme='light'] .dt-search input,
+[data-theme='light'] .cts-trigger {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+  color: #1f2937;
+}
+[data-theme='light'] .cts-menu {
+  background-color: #ffffff;
+  border-color: #cbd5e1;
+}
+[data-theme='light'] .cts-item {
+  color: #1f2937;
+}
+[data-theme='light'] .cts-item:hover {
+  background-color: #eef2f7;
+}
+[data-theme='light'] .connector-info {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+[data-theme='light'] .connector-info strong {
+  color: #0f172a;
+}
+[data-theme='light'] button.ghost {
+  background-color: #e2e8f0;
+  color: #334155;
+}
+[data-theme='light'] button.ghost:hover {
+  background-color: #cbd5e1;
+}
+[data-theme='light'] .stat {
+  border-left-color: var(--brand-green);
+}
+[data-theme='light'] .stat span {
+  color: #64748b;
+}
+
 /* Media library & picker — grid thumbnail. Ditulis di luar @layer supaya
    menang atas gaya dasar `button` (yang ber-layer). */
 .media-grid {
@@ -431,7 +597,7 @@
   cursor: pointer;
 }
 .media-card:hover {
-  border-color: #22c55e;
+  border-color: var(--brand-green);
 }
 .media-tile {
   display: flex;

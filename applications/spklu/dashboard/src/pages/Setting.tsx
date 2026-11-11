@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { get, put } from '../api';
 import PasswordInput from '../components/PasswordInput';
 
@@ -37,10 +38,20 @@ const empty: SettingData = {
 };
 
 export default function Setting() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [form, setForm] = useState<SettingData>(empty);
   const [group, setGroup] = useState<Group>('pajak');
   const [smtpPass, setSmtpPass] = useState(''); // write-only — tidak pernah dimuat dari server
   const [msg, setMsg] = useState('');
+
+  // Baca tab dari URL (?tab=pajak|wallet|smtp) supaya sub-menu sidebar
+  // (Tax / Wallet ID / SMTP) membuka tab yang dituju.
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'pajak' || tab === 'wallet' || tab === 'smtp') {
+      setGroup(tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     get<SettingData>('/admin/setting').then((r) => {
@@ -54,6 +65,7 @@ export default function Setting() {
 
   function selectGroup(g: Group) {
     setGroup(g);
+    setSearchParams({ tab: g });
     setMsg('');
     setSmtpPass('');
   }
